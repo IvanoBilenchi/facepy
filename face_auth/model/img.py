@@ -1,10 +1,10 @@
 import numpy as np
-from .geometry import Rect
+from .geometry import Rect, Size
 
 
-def size(image: np.array) -> (int, int):
+def size(image: np.array) -> Size:
     shape = image.shape[:2]
-    return shape[1], shape[0]
+    return Size(shape[1], shape[0])
 
 
 def cropped(image: np.array, rect: Rect) -> np.array:

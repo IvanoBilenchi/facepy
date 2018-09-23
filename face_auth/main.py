@@ -1,5 +1,6 @@
 from .controller import training
-from .view import webcam
+from .view.webcam import Webcam
 
 if __name__ == '__main__':
-    webcam.start_capture(training.process_frame)
+    with Webcam(frame_handler=training.process_frame) as webcam:
+        webcam.start_capture()

@@ -5,8 +5,19 @@ from face_auth.model import detector
 from face_auth.model.detector import DetectionAlgo
 
 
+# Public functions
+
+
 def process_frame(frame: np.array, key_press: int) -> None:
     del key_press  # Unused
+    __highlight_faces(frame)
+
+
+# Private functions
+
+
+def __highlight_faces(frame: np.array) -> None:
+    pass
     rect_color = (0, 0, 255)
     line_width = 3
 

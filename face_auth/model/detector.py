@@ -40,17 +40,12 @@ def detect_faces(frame: np.array, algo: DetectionAlgo = DetectionAlgo.HAAR) -> L
 def __detect_faces(frame: np.array, func: Callable[[np.array], List[Rect]]) -> List[Rect]:
     scale_factor = 4
     temp_frame = cv2.resize(frame, (0, 0), fx=1.0/scale_factor, fy=1.0/scale_factor)
-    faces = func(temp_frame)
-
-    for face in faces:
-        face.scale(scale_factor)
-
-    return faces
+    return [face.scaled(scale_factor) for face in func(temp_frame)]
 
 
 def __haar_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return [Rect(*f) for f in __haar_detector.detectMultiScale(temp_frame, 1.3, 5)]
+    return [Rect(*f) for f in __haar_detector.detectMultiScale(temp_frame, 1.2, 5)]
 
 
 def __hog_detect_faces(frame: np.array) -> List[Rect]:

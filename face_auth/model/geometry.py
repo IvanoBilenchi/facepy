@@ -1,22 +1,41 @@
-class Rect:
+from typing import NamedTuple
+
+
+class Point(NamedTuple):
+    """Models a point."""
+    x: int = 0
+    y: int = 0
+
+
+class Size(NamedTuple):
+    """Models sizes."""
+    width: int = 0
+    height: int = 0
+
+
+class Rect(NamedTuple):
     """Models a rectangle."""
+    x: int = 0
+    y: int = 0
+    width: int = 0
+    height: int = 0
 
     @property
-    def top_left(self) -> (int, int):
-        return self.x, self.y
+    def top_left(self) -> Point:
+        return Point(self.x, self.y)
 
     @property
-    def bottom_right(self) -> (int, int):
-        return self.x + self.width, self.y + self.height
+    def bottom_right(self) -> Point:
+        return Point(self.x + self.width, self.y + self.height)
 
-    def __init__(self, x: int, y: int, width: int, height: int) -> None:
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+    @property
+    def center(self) -> Point:
+        return Point(self.x + self.width // 2, self.y + self.height // 2)
 
-    def scale(self, scale_factor: int):
-        self.x *= scale_factor
-        self.y *= scale_factor
-        self.width *= scale_factor
-        self.height *= scale_factor
+    @property
+    def size(self) -> Size:
+        return Size(self.width, self.height)
+
+    def scaled(self, scale_factor: int) -> 'Rect':
+        return Rect(self.x * scale_factor, self.y * scale_factor,
+                    self.width * scale_factor, self.height * scale_factor)
