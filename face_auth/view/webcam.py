@@ -4,10 +4,11 @@ from typing import Callable
 
 from .fps_renderer import FPSRenderer
 from face_auth.model import img
+from face_auth.model.input import WebcamStream
 
 
 class Webcam:
-    """Models the webcam."""
+    """Models the webcam view."""
 
     # Public methods
 
@@ -15,18 +16,18 @@ class Webcam:
                  frame_handler: Callable[[np.array, int], None] = None) -> None:
         self.window_name = window_name
         self.__frame_handler = frame_handler
-        self.__cam: cv2.VideoCapture = None
+        self.__input_stream = WebcamStream()
         self.__fps_renderer: FPSRenderer = None
 
     def __enter__(self):
         cv2.namedWindow(self.window_name)
         cv2.moveWindow(self.window_name, 100, 80)
-        self.__cam = cv2.VideoCapture(0)
-        self.__fps_renderer = FPSRenderer(self.__cam)
+        self.__input_stream.start()
+        self.__fps_renderer = FPSRenderer(self.__input_stream.max_fps)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__cam.release()
+        self.__input_stream.stop()
         cv2.destroyAllWindows()
 
     def start_capture(self) -> None:
@@ -45,14 +46,12 @@ class Webcam:
     # Private methods
 
     def __get_frame(self) -> np.array:
-        success, frame = self.__cam.read()
+        frame = self.__input_stream.get_frame()
 
-        if not success:
-            return None
-
-        frame = cv2.flip(frame, 1)
-        frame = img.cropped_to_square(frame)
-        self.__fps_renderer.frame_tick()
+        if frame is not None:
+            frame = cv2.flip(frame, 1)
+            frame = img.cropped_to_square(frame)
+            self.__fps_renderer.frame_tick()
 
         return frame
 

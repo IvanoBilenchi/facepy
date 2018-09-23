@@ -8,8 +8,8 @@ from face_auth.model import img
 class FPSRenderer:
     """Renders FPS stats."""
 
-    def __init__(self, cam: cv2.VideoCapture) -> None:
-        self.max_fps = cam.get(cv2.CAP_PROP_FPS)
+    def __init__(self, max_fps: float) -> None:
+        self.max_fps = max_fps
         self.fps = 0.0
 
         self.__frame_count = 0
