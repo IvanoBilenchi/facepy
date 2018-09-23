@@ -17,7 +17,6 @@ def process_frame(frame: np.array, key_press: int) -> None:
 
 
 def __highlight_faces(frame: np.array) -> None:
-    pass
     rect_color = (0, 0, 255)
     line_width = 3
 

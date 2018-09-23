@@ -1,20 +1,19 @@
-import cv2.data as cvdata
 import cv2.cv2 as cv2
 import dlib
 import numpy as np
-import os
 
 from enum import Enum
 from typing import Callable, List
 
-from face_auth.model.geometry import Rect
+from .config import Paths
+from .geometry import Rect
 
 
 # Globals
 
-__haar_detector = cv2.CascadeClassifier(os.path.join(cvdata.haarcascades,
-                                                     'haarcascade_frontalface_default.xml'))
+__haar_detector = cv2.CascadeClassifier(Paths.HAAR_FACE_DETECTOR_MODEL)
 __hog_detector = dlib.get_frontal_face_detector()
+__cnn_detector = dlib.cnn_face_detection_model_v1(Paths.CNN_FACE_DETECTOR_MODEL)
 
 
 # Types
@@ -22,6 +21,7 @@ __hog_detector = dlib.get_frontal_face_detector()
 class DetectionAlgo(Enum):
     HAAR = 1
     HOG = 2
+    CNN = 3
 
 
 # Public functions
@@ -31,6 +31,8 @@ def detect_faces(frame: np.array, algo: DetectionAlgo = DetectionAlgo.HAAR) -> L
         return __detect_faces(frame, __haar_detect_faces)
     elif algo == DetectionAlgo.HOG:
         return __detect_faces(frame, __hog_detect_faces)
+    elif algo == DetectionAlgo.CNN:
+        return __detect_faces(frame, __cnn_detect_faces)
     else:
         return []
 
@@ -52,3 +54,14 @@ def __hog_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return [Rect(f.left(), f.top(), f.right() - f.left(), f.bottom() - f.top())
             for f in __hog_detector(temp_frame)]
+
+
+def __cnn_detect_faces(frame: np.array) -> List[Rect]:
+    temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    faces = []
+
+    for face in __cnn_detector(temp_frame):
+        f = face.rect
+        faces.append(Rect(f.left(), f.top(), f.right() - f.left(), f.bottom() - f.top()))
+
+    return faces
