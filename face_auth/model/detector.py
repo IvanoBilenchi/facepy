@@ -52,16 +52,9 @@ def __haar_detect_faces(frame: np.array) -> List[Rect]:
 
 def __hog_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return [Rect(f.left(), f.top(), f.right() - f.left(), f.bottom() - f.top())
-            for f in __hog_detector(temp_frame)]
+    return [Rect.from_dlib_rect(rect) for rect in __hog_detector(temp_frame)]
 
 
 def __cnn_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    faces = []
-
-    for face in __cnn_detector(temp_frame):
-        f = face.rect
-        faces.append(Rect(f.left(), f.top(), f.right() - f.left(), f.bottom() - f.top()))
-
-    return faces
+    return [Rect.from_dlib_rect(face.rect) for face in __cnn_detector(temp_frame)]
