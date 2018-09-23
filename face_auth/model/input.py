@@ -6,8 +6,6 @@ from threading import Lock, Thread
 class WebcamStream:
 
     def __init__(self) -> None:
-        self.max_fps = 0.0
-
         self.__cam: cv2.VideoCapture = None
         self.__frame = None
 
@@ -19,7 +17,6 @@ class WebcamStream:
 
     def start(self) -> None:
         self.__cam = cv2.VideoCapture(0)
-        self.max_fps = self.__cam.get(cv2.CAP_PROP_FPS)
         self.__running = True
         self.__input_thread.start()
 

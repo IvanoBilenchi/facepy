@@ -23,7 +23,7 @@ class Webcam:
         cv2.namedWindow(self.window_name)
         cv2.moveWindow(self.window_name, 100, 80)
         self.__input_stream.start()
-        self.__fps_renderer = FPSRenderer(self.__input_stream.max_fps)
+        self.__fps_renderer = FPSRenderer()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

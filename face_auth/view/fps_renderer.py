@@ -8,10 +8,16 @@ from face_auth.model import img
 class FPSRenderer:
     """Renders FPS stats."""
 
-    def __init__(self, max_fps: float) -> None:
-        self.max_fps = max_fps
-        self.fps = 0.0
+    # Public constants
 
+    FONT_HEIGHT = 14
+    FONT_COLOR = (0, 255, 0)
+    FONT_SCALE = cv2.getFontScaleFromHeight(cv2.FONT_HERSHEY_SIMPLEX, FONT_HEIGHT)
+
+    # Public methods
+
+    def __init__(self) -> None:
+        self.fps = 0.0
         self.__frame_count = 0
         self.__frame_timestamp = perf_counter_ns()
 
@@ -27,16 +33,7 @@ class FPSRenderer:
             self.__frame_timestamp = current_ns
 
     def render(self, frame: np.array) -> None:
-        font_color = (0, 255, 0)
-        font_height = 14
-
-        max_fps = 'MAX FPS: {0:.2f}'.format(self.max_fps)
         fps = 'FPS: {0:.2f}'.format(self.fps)
-
         w, h = img.size(frame)
-        font_scale = cv2.getFontScaleFromHeight(cv2.FONT_HERSHEY_SIMPLEX, font_height)
-
-        cv2.putText(frame, max_fps, (w - 180, font_height + 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_color)
-        cv2.putText(frame, fps, (w - 180, 2 * font_height + 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_color)
+        cv2.putText(frame, fps, (w - 140, self.FONT_HEIGHT + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, self.FONT_SCALE, self.FONT_COLOR)
