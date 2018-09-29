@@ -59,5 +59,6 @@ class Webcam:
         cv2.imshow(self.window_name, frame)
 
     def __postprocess_frame(self, frame: np.array) -> np.array:
+        frame = cv2.resize(frame, (450, 450))
         self.__fps_renderer.render(frame)
         return frame
