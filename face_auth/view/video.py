@@ -12,6 +12,7 @@ class VideoView:
     class Key(Enum):
         NONE = 0
         ESC = 27
+        SPACE = 32
 
         @staticmethod
         def from_int(value: int) -> 'VideoView.Key':

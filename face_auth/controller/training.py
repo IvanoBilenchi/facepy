@@ -1,6 +1,7 @@
 import cv2.cv2 as cv2
 import numpy as np
 
+from face_auth import config
 from face_auth.model import detector, img
 from face_auth.model.input import WebcamStream
 from face_auth.view import geometry_renderer
@@ -26,13 +27,12 @@ class TrainingController:
 
     def run_loop(self) -> None:
         while True:
-            key = VideoView.Key.NONE
+            key = self.__view.get_key()
             frame = self.__input_stream.get_frame()
 
             if frame is not None:
-                frame = self.__process_frame(frame)
+                frame = self.__process_frame(frame, key)
                 self.__view.render(frame)
-                key = self.__view.get_key()
 
             if key == VideoView.Key.ESC:
                 break
@@ -40,11 +40,14 @@ class TrainingController:
     # Private methods
 
     @staticmethod
-    def __process_frame(frame: np.array) -> np.array:
+    def __process_frame(frame: np.array, key: VideoView.Key) -> np.array:
         frame = cv2.flip(frame, 1)
         frame = img.cropped_to_square(frame)
 
         faces = detector.detect_faces(frame)
+
+        if faces and key == VideoView.Key.SPACE:
+            img.save(img.cropped(frame, faces[-1]), config.Paths.FACE_IMAGE)
 
         for face in faces:
             geometry_renderer.draw_rect(frame, face)
