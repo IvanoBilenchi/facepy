@@ -5,29 +5,36 @@ import numpy as np
 from enum import Enum
 from typing import Callable, List
 
-from .config import Paths
+from face_auth import config
 from .geometry import Landmarks, Rect
 
 
 # Globals
 
-__haar_detector = cv2.CascadeClassifier(Paths.HAAR_FACE_DETECTOR_MODEL)
+
+__haar_detector = cv2.CascadeClassifier(config.Paths.HAAR_FACE_DETECTOR_MODEL)
 __hog_detector = dlib.get_frontal_face_detector()
-__cnn_detector = dlib.cnn_face_detection_model_v1(Paths.CNN_FACE_DETECTOR_MODEL)
-__shape_predictor = dlib.shape_predictor(Paths.FACE_LANDMARKS_MODEL)
+__cnn_detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
+__shape_predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_MODEL)
 
 
 # Types
+
 
 class DetectionAlgo(Enum):
     HAAR = 1
     HOG = 2
     CNN = 3
 
+    @classmethod
+    def default(cls) -> 'DetectionAlgo':
+        return DetectionAlgo[config.Detector.ALGORITHM]
+
 
 # Public functions
 
-def detect_faces(frame: np.array, algo: DetectionAlgo = DetectionAlgo.HAAR) -> List[Rect]:
+
+def detect_faces(frame: np.array, algo: DetectionAlgo = DetectionAlgo.default()) -> List[Rect]:
     if algo == DetectionAlgo.HAAR:
         return __detect_faces(frame, __haar_detect_faces)
     elif algo == DetectionAlgo.HOG:
@@ -45,8 +52,9 @@ def detect_landmarks(frame: np.array, rect: Rect) -> Landmarks:
 
 # Private functions
 
+
 def __detect_faces(frame: np.array, func: Callable[[np.array], List[Rect]]) -> List[Rect]:
-    scale_factor = 4
+    scale_factor = config.Detector.SCALE_FACTOR
     temp_frame = cv2.resize(frame, (0, 0), fx=1.0/scale_factor, fy=1.0/scale_factor)
     return [face.scaled(scale_factor) for face in func(temp_frame)]
 

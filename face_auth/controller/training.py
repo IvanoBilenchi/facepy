@@ -1,45 +1,54 @@
 import cv2.cv2 as cv2
 import numpy as np
 
-from face_auth.model import detector
-from face_auth.model.detector import DetectionAlgo
-from face_auth.model.geometry import Landmarks, Rect
+from face_auth.model import detector, img
+from face_auth.model.input import WebcamStream
+from face_auth.view import geometry_renderer
+from face_auth.view.video import VideoView
 
 
-# Public functions
+class TrainingController:
 
+    # Public methods
 
-def process_frame(frame: np.array, key_press: int) -> None:
-    del key_press  # Unused
-    __highlight_faces(frame)
+    def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
+        self.__view = view
+        self.__input_stream = input_stream
 
+    def __enter__(self):
+        self.__view.display()
+        self.__input_stream.start()
+        return self
 
-# Private functions
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__input_stream.stop()
+        self.__view.close()
 
+    def run_loop(self) -> None:
+        while True:
+            key = VideoView.Key.NONE
+            frame = self.__input_stream.get_frame()
 
-def __highlight_faces(frame: np.array) -> None:
-    rect_color = (255, 0, 0)
-    line_width = 3
+            if frame is not None:
+                frame = self.__process_frame(frame)
+                self.__view.render(frame)
+                key = self.__view.get_key()
 
-    for face in detector.detect_faces(frame, DetectionAlgo.HOG):
-        cv2.rectangle(frame, face.top_left, face.bottom_right, rect_color, line_width)
-        __draw_landmarks(frame, face)
+            if key == VideoView.Key.ESC:
+                break
 
+    # Private methods
 
-def __draw_landmarks(frame: np.array, rect: Rect) -> None:
-    color = (0, 255, 0)
-    mouth_color = (0, 0, 255)
-    eye_color = (255, 255, 255)
-    thickness = 2
+    @staticmethod
+    def __process_frame(frame: np.array) -> np.array:
+        frame = cv2.flip(frame, 1)
+        frame = img.cropped_to_square(frame)
 
-    lm = detector.detect_landmarks(frame, rect)
+        faces = detector.detect_faces(frame)
 
-    cv2.polylines(frame, Landmarks.to_numpy(lm.chin), False, color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.left_eyebrow), False, color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.right_eyebrow), False, color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.left_eye), True, eye_color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.right_eye), True, eye_color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.nose_bridge), False, color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.nose_tip), False, color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.top_lip), True, mouth_color, thickness)
-    cv2.polylines(frame, Landmarks.to_numpy(lm.bottom_lip), True, mouth_color, thickness)
+        for face in faces:
+            geometry_renderer.draw_rect(frame, face)
+            landmarks = detector.detect_landmarks(frame, face)
+            geometry_renderer.draw_landmarks(frame, landmarks)
+
+        return frame

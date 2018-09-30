@@ -1,6 +1,7 @@
-from .controller import training
-from .view.webcam import Webcam
+from .controller.training import TrainingController
+from .model.input import WebcamStream
+from .view.video import VideoView
 
 if __name__ == '__main__':
-    with Webcam(frame_handler=training.process_frame) as webcam:
-        webcam.start_capture()
+    with TrainingController(view=VideoView(), input_stream=WebcamStream()) as controller:
+        controller.run_loop()
