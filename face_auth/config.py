@@ -19,6 +19,7 @@ class Paths:
 
 class Detector:
     """Detector config namespace."""
+    WEBCAM = 0
     SCALE_FACTOR = 5
     ALGORITHM = 'HOG'
 
