@@ -4,6 +4,9 @@ import sys
 from os import path
 
 
+DEBUG = False
+
+
 class Paths:
     """Paths config namespace."""
     DIR = path.dirname(path.dirname(path.realpath(sys.argv[0])))
