@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 from dlib import rectangle
 from typing import List, NamedTuple
 
@@ -85,3 +86,36 @@ class Landmarks(NamedTuple):
     def all(self) -> List[Point]:
         return (self.chin + self.left_eyebrow + self.right_eyebrow + self.left_eye +
                 self.right_eye + self.nose_bridge + self.nose_tip + self.top_lip + self.bottom_lip)
+
+    @property
+    def rect(self) -> Rect:
+        min_x = sys.maxsize
+        min_y = sys.maxsize
+        max_x = 0
+        max_y = 0
+
+        for point in self.left_eyebrow:
+            if point.x < min_x:
+                min_x = point.x
+
+            if point.y < min_y:
+                min_y = point.y
+
+        for point in self.right_eyebrow:
+            if point.x > max_x:
+                max_x = point.x
+
+            if point.y < min_y:
+                min_y = point.y
+
+        for point in self.chin:
+            if point.x > max_x:
+                max_x = point.x
+
+            if point.x < min_x:
+                min_x = point.x
+
+            if point.y > max_y:
+                max_y = point.y
+
+        return Rect(min_x, min_y, max_x - min_x, max_y - min_y)
