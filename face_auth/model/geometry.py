@@ -1,3 +1,4 @@
+import cv2.cv2 as cv2
 import numpy as np
 import sys
 from dlib import rectangle
@@ -14,10 +15,26 @@ class Point(NamedTuple):
         return np.int32([np.asarray(pts)])
 
     @classmethod
+    def from_numpy(cls, pts: np.array) -> List['Point']:
+        return [Point(p[0], p[1]) for p in pts]
+
+    @classmethod
     def with_new_origin(cls, pts: List['Point'], origin: 'Point') -> List['Point']:
-        ox = origin.x
-        oy = origin.y
+        ox, oy = origin.x, origin.y
         return [Point(p.x - ox, p.y - oy) for p in pts]
+
+    @classmethod
+    def mean(cls, pts: List['Point']) -> 'Point':
+        x, y, n = 0, 0, len(pts)
+
+        if n == 0:
+            return Point(0, 0)
+
+        for point in pts:
+            x += point.x
+            y += point.y
+
+        return Point(x // n, y // n)
 
 
 class Size(NamedTuple):
@@ -115,12 +132,8 @@ class Landmarks(NamedTuple):
         return (self.chin + self.left_eyebrow + self.right_eyebrow + self.left_eye +
                 self.right_eye + self.nose_bridge + self.nose_tip + self.top_lip + self.bottom_lip)
 
-    @property
     def rect(self) -> Rect:
-        min_x = sys.maxsize
-        min_y = sys.maxsize
-        max_x = 0
-        max_y = 0
+        min_x, min_y, max_x, max_y = sys.maxsize, sys.maxsize, 0, 0
 
         for point in self.left_eyebrow:
             if point.x < min_x:
@@ -147,3 +160,50 @@ class Landmarks(NamedTuple):
                 max_y = point.y
 
         return Rect(min_x, min_y, max_x - min_x, max_y - min_y)
+
+    def square(self) -> Rect:
+        return Rect.expanded_to_square(self.rect())
+
+    def alignment_matrix(self) -> np.array:
+        # Get the center of the eyes
+        left_eye = Point.mean(self.left_eye)
+        right_eye = Point.mean(self.right_eye)
+        face_square = self.square()
+
+        # Compute tilt
+        delta_y = right_eye.y - left_eye.y
+        delta_x = right_eye.x - left_eye.x
+        angle = np.degrees(np.arctan2(delta_y, delta_x))
+
+        # Normalized eye positions
+        out_left_eye_x, out_left_eye_y = 0.3, 0.20
+        out_right_eye_x, out_right_eye_y = 1.0 - out_left_eye_x, 1.0 - out_left_eye_y
+
+        # Compute scale of output image
+        dist = np.sqrt((delta_x ** 2) + (delta_y ** 2))
+        out_dist = (out_right_eye_x - out_left_eye_x) * face_square.width
+        scale = out_dist / dist
+
+        # Compute rotation center point
+        eyes_center = Point.mean([left_eye, right_eye])
+
+        # Compute rotation matrix
+        matrix = cv2.getRotationMatrix2D(eyes_center, angle, scale)
+
+        # Update translation components
+        matrix[0, 2] += (face_square.width * 0.5 - eyes_center.x)
+        matrix[1, 2] += (face_square.height * out_left_eye_y - eyes_center.y)
+
+        return matrix
+
+    def apply_transform(self, matrix) -> 'Landmarks':
+        out = []
+
+        for landmark in [self.chin, self.left_eyebrow, self.right_eyebrow, self.left_eye,
+                         self.right_eye, self.nose_bridge, self.nose_tip, self.top_lip,
+                         self.bottom_lip, self.outer_shape]:
+            trans_landmark = np.array([[p.x, p.y] for p in landmark], dtype=np.float32)
+            trans_landmark = cv2.perspectiveTransform(np.array([trans_landmark]), matrix)
+            out.append(trans_landmark)
+
+        return Landmarks(*out)

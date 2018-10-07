@@ -38,6 +38,21 @@ def masked_to_shape(image: np.array, shape: [Point]) -> np.array:
     return cv2.bitwise_and(image, mask)
 
 
+def normalized(image: np.array) -> np.array:
+    clahe = cv2.createCLAHE(clipLimit=2.0)
+
+    if is_colored(image):
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        lab_planes = cv2.split(image)
+        lab_planes[0] = clahe.apply(lab_planes[0])
+        image = cv2.merge(lab_planes)
+        image = cv2.cvtColor(image, cv2.COLOR_LAB2BGR)
+    else:
+        image = clahe.apply(image)
+
+    return image
+
+
 def to_grayscale(image: np.array) -> np.array:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -47,6 +62,10 @@ def denoised(image: np.array) -> np.array:
         return cv2.fastNlMeansDenoisingColored(image)
     else:
         return cv2.fastNlMeansDenoising(image)
+
+
+def transform(image: np.array, matrix: np.array, out_size: Size) -> np.array:
+    return cv2.warpAffine(image, matrix, out_size, flags=cv2.INTER_CUBIC)
 
 
 def save(image: np.array, path: str) -> bool:
