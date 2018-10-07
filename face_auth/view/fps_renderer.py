@@ -24,7 +24,7 @@ class FPSRenderer:
     def render(self, frame: np.array) -> None:
         self.__frame_tick()
 
-        fps = 'FPS: {0:.2f}'.format(self.fps)
+        fps = 'FPS: {:.2f}'.format(self.fps)
         w, h = img.size(frame)
         cv2.putText(frame, fps, (w - self.__label_width, Config.FONT_HEIGHT + 10),
                     Config.FONT, Config.FONT_SCALE, Config.FONT_COLOR,

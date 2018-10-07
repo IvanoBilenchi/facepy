@@ -3,6 +3,7 @@ import numpy as np
 from enum import Enum
 
 from face_auth.config import Renderer as Config
+from face_auth.model import img
 from .fps_renderer import FPSRenderer
 
 
@@ -38,7 +39,7 @@ class VideoView:
         return VideoView.Key.from_int(cv2.waitKey(1))
 
     def render(self, frame: np.array) -> None:
-        frame = cv2.resize(frame, Config.VIDEO_SIZE)
+        frame = img.resized(frame, Config.VIDEO_SIZE)
         if self.__fps_renderer is not None:
             self.__fps_renderer.render(frame)
         cv2.imshow(Config.WINDOW_NAME, frame)

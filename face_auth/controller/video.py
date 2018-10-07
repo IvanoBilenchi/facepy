@@ -1,4 +1,3 @@
-import cv2.cv2 as cv2
 import numpy as np
 
 from face_auth.model import img
@@ -29,21 +28,21 @@ class VideoController:
             frame = self.__input_stream.get_frame()
 
             if frame is not None:
-                frame = self._preprocess_frame(frame)
+                frame = self.__preprocess_frame(frame)
                 frame = self._process_frame(frame, key)
                 self.__view.render(frame)
 
             if key == VideoView.Key.ESC:
                 break
 
-    # Protected methods
+    # Private methods
 
-    def _preprocess_frame(self, frame: np.array) -> np.array:
-        frame = cv2.flip(frame, 1)
-        frame = img.cropped_to_square(frame)
+    def __preprocess_frame(self, frame: np.array) -> np.array:
+        for step in [img.cropped_to_square, img.flipped_horizontally]:
+            frame = step(frame)
         return frame
 
-    # Abstract methods
+    # Override
 
     def _process_frame(self, frame: np.array, key: VideoView.Key) -> np.array:
         raise NotImplementedError
