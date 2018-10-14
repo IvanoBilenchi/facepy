@@ -3,7 +3,7 @@ import math
 import numpy as np
 import sys
 from dlib import rectangle
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 
 class Point(NamedTuple):
@@ -70,6 +70,20 @@ class Rect(NamedTuple):
     @classmethod
     def from_dlib_rect(cls, rect: rectangle) -> 'Rect':
         return Rect(rect.left(), rect.top(), rect.width(), rect.height())
+
+    @classmethod
+    def nearest_to_center(cls, rects: List['Rect'], center: Point) -> Optional['Rect']:
+        min_distance = sys.maxsize
+        nearest = None
+
+        for rect in rects:
+            distance = rect.center.distance(center)
+
+            if distance < min_distance:
+                min_distance = distance
+                nearest = rect
+
+        return nearest
 
     @property
     def top_left(self) -> Point:
@@ -226,3 +240,51 @@ class Face(NamedTuple):
     """Models a detected face in an image."""
     rect: Rect
     landmarks: Landmarks
+
+    def weighting_previous(self, face: 'Face', alpha: float) -> 'Face':
+        return Face(_rect_exp_avg(self.rect, face.rect, alpha),
+                    _landmarks_exp_avg(self.landmarks, face.landmarks, alpha))
+
+
+# Private
+
+
+def _exp_avg(cur: int, history: int, alpha: float) -> int:
+    return int(cur * alpha + history * (1.0 - alpha))
+
+
+def _point_exp_avg(c: Point, h: Point, a: float) -> Point:
+    return Point(_exp_avg(c.x, h.x, a), _exp_avg(c.y, h.y, a))
+
+
+def _rect_exp_avg(c: Rect, h: Rect, a: float) -> Rect:
+    return Rect(
+        x=_exp_avg(c.x, h.x, a),
+        y=_exp_avg(c.y, h.y, a),
+        width=_exp_avg(c.width, h.width, a),
+        height=_exp_avg(c.height, h.height, a)
+    )
+
+
+def _point_list_exp_avg(c: List[Point], h: List[Point], a: float) -> List[Point]:
+    avg = []
+
+    for idx, pt in enumerate(c):
+        avg.append(_point_exp_avg(pt, h[idx], a))
+
+    return avg
+
+
+def _landmarks_exp_avg(c: Landmarks, h: Landmarks, a: float) -> Landmarks:
+    return Landmarks(
+        chin=_point_list_exp_avg(c.chin, h.chin, a),
+        left_eyebrow=_point_list_exp_avg(c.left_eyebrow, h.left_eyebrow, a),
+        right_eyebrow=_point_list_exp_avg(c.right_eyebrow, h.right_eyebrow, a),
+        left_eye=_point_list_exp_avg(c.left_eye, h.left_eye, a),
+        right_eye=_point_list_exp_avg(c.right_eye, h.right_eye, a),
+        nose_bridge=_point_list_exp_avg(c.nose_bridge, h.nose_bridge, a),
+        nose_tip=_point_list_exp_avg(c.nose_tip, h.nose_tip, a),
+        top_lip=_point_list_exp_avg(c.top_lip, h.top_lip, a),
+        bottom_lip=_point_list_exp_avg(c.bottom_lip, h.bottom_lip, a),
+        outer_shape=_point_list_exp_avg(c.outer_shape, h.outer_shape, a)
+    )

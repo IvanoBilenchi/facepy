@@ -25,6 +25,7 @@ class Detector:
     WEBCAM = 0
     SCALE_FACTOR = 5
     ALGORITHM = 'HOG'
+    SMOOTHNESS = 0.55
 
 
 class Renderer:

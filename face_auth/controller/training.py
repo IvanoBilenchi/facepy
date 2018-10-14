@@ -2,7 +2,7 @@ import numpy as np
 
 from .video import VideoController
 from face_auth import config
-from face_auth.model import detector
+from face_auth.model.detector import FaceDetector
 from face_auth.model.input import WebcamStream
 from face_auth.model.recognition import FaceRecognitionModel
 from face_auth.view import geometry_renderer
@@ -15,12 +15,13 @@ class TrainingController(VideoController):
 
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
         super(TrainingController, self).__init__(view, input_stream)
+        self.__detector = FaceDetector()
         self.__face_model = FaceRecognitionModel()
 
     # Overrides
 
     def _process_frame(self, frame: np.array, key: VideoView.Key) -> np.array:
-        face = detector.detect_main_face(frame)
+        face = self.__detector.detect_main_face(frame)
 
         if face is not None:
             if key == VideoView.Key.SPACE:
