@@ -1,4 +1,5 @@
 import cv2.cv2 as cv2
+import math
 import numpy as np
 import sys
 from dlib import rectangle
@@ -36,11 +37,23 @@ class Point(NamedTuple):
 
         return Point(x // n, y // n)
 
+    def distance(self, other: 'Point') -> int:
+        return int(math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2))
+
 
 class Size(NamedTuple):
     """Models sizes."""
     width: int = 0
     height: int = 0
+
+    @classmethod
+    def of_image(cls, image: np.array) -> 'Size':
+        shape = image.shape[:2]
+        return Size(shape[1], shape[0])
+
+    @property
+    def center(self) -> Point:
+        return Point(self.width // 2, self.height // 2)
 
 
 class Rect(NamedTuple):
@@ -207,3 +220,9 @@ class Landmarks(NamedTuple):
             out.append(trans_landmark)
 
         return Landmarks(*out)
+
+
+class Face(NamedTuple):
+    """Models a detected face in an image."""
+    rect: Rect
+    landmarks: Landmarks

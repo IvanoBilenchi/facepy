@@ -1,6 +1,7 @@
 import argparse
 
 from . import config
+from .controller.authentication import AuthenticationController
 from .controller.training import TrainingController
 from .model.input import WebcamStream
 from .view.video import VideoView
@@ -13,6 +14,14 @@ def training_sub(args) -> int:
     """Training subcommand."""
     del args  # Unused
     with TrainingController(view=VideoView(), input_stream=WebcamStream()) as controller:
+        controller.run_loop()
+    return 0
+
+
+def authentication_sub(args) -> int:
+    """Authentication subcommand."""
+    del args  # Unused
+    with AuthenticationController(view=VideoView(), input_stream=WebcamStream()) as controller:
         controller.run_loop()
     return 0
 
@@ -58,12 +67,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Training subcommand
     desc = 'Train the model to recognize a face.'
-    parser_classification = subparsers.add_parser('training',
-                                                  description=desc,
-                                                  help=desc,
-                                                  parents=[help_parser],
-                                                  add_help=False)
+    parser = subparsers.add_parser('training',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
 
-    parser_classification.set_defaults(func=training_sub)
+    parser.set_defaults(func=training_sub)
+
+    # Authentication subcommand
+    desc = 'Use the trained model to authenticate the user.'
+    parser = subparsers.add_parser('authentication',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
+
+    parser.set_defaults(func=authentication_sub)
 
     return main_parser

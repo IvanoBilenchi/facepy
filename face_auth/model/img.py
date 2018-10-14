@@ -9,11 +9,6 @@ def is_colored(image: np.array) -> bool:
     return len(image.shape) == 3
 
 
-def size(image: np.array) -> Size:
-    shape = image.shape[:2]
-    return Size(shape[1], shape[0])
-
-
 def resized(image: np.array, new_size: Size) -> np.array:
     return cv2.resize(image, new_size)
 
@@ -23,7 +18,7 @@ def cropped(image: np.array, rect: Rect) -> np.array:
 
 
 def cropped_to_square(image: np.array) -> np.array:
-    return cropped(image, Rect.with_size(size(image)).shrunk_to_square())
+    return cropped(image, Rect.with_size(Size.of_image(image)).shrunk_to_square())
 
 
 def flipped_horizontally(image: np.array) -> np.array:

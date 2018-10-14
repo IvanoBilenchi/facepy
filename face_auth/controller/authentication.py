@@ -4,18 +4,18 @@ from .video import VideoController
 from face_auth import config
 from face_auth.model import detector
 from face_auth.model.input import WebcamStream
-from face_auth.model.recognition import FaceRecognitionModel
+from face_auth.model.recognition import FaceRecognizer
 from face_auth.view import geometry_renderer
 from face_auth.view.video import VideoView
 
 
-class TrainingController(VideoController):
+class AuthenticationController(VideoController):
 
     # Public methods
 
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
-        super(TrainingController, self).__init__(view, input_stream)
-        self.__face_model = FaceRecognitionModel()
+        super(AuthenticationController, self).__init__(view, input_stream)
+        self.__recognizer = FaceRecognizer(config.Paths.FACE_RECOGNITION_MODEL)
 
     # Overrides
 
@@ -24,9 +24,8 @@ class TrainingController(VideoController):
 
         if face is not None:
             if key == VideoView.Key.SPACE:
-                self.__face_model.add_sample(frame, face.landmarks)
-            elif key == VideoView.Key.ENTER:
-                self.__face_model.train(config.Paths.FACE_RECOGNITION_MODEL)
+                confidence = self.__recognizer.confidence_of_prediction(frame, face.landmarks)
+                print('Confidence: {}'.format(confidence))
 
             geometry_renderer.draw_landmarks(frame, face.landmarks)
 

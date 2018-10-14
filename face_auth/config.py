@@ -17,7 +17,7 @@ class Paths:
     CNN_FACE_DETECTOR_MODEL = path.join(RES_DIR, 'mmod_human_face_detector.dat')
     FACE_LANDMARKS_MODEL = path.join(RES_DIR, 'shape_predictor_68_face_landmarks.dat')
 
-    FACE_IMAGE = path.join(USER_DIR, 'face.png')
+    FACE_RECOGNITION_MODEL = path.join(USER_DIR, 'model.yml')
 
 
 class Detector:

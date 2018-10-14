@@ -18,8 +18,8 @@ class Pipeline:
 
     @classmethod
     def execute(cls, name: str, frame: np.array, debug: bool = False,
-                steps: Optional[List[Step]] = None):
-        Pipeline(name, debug, steps).run(frame)
+                steps: Optional[List[Step]] = None) -> np.array:
+        return Pipeline(name, debug, steps).run(frame)
 
     def __init__(self, name: str, debug: bool, steps: Optional[List[Step]]) -> None:
         self.name = name

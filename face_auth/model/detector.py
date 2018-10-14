@@ -1,12 +1,13 @@
 import cv2.cv2 as cv2
 import dlib
 import numpy as np
+import sys
 
 from enum import Enum
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from face_auth import config
-from .geometry import Landmarks, Rect
+from .geometry import Face, Landmarks, Size, Rect
 
 
 # Globals
@@ -50,7 +51,32 @@ def detect_landmarks(frame: np.array, rect: Rect) -> Landmarks:
     return Landmarks.from_dlib_landmarks(landmarks)
 
 
+def detect_main_face(frame: np.array,
+                     algo: DetectionAlgo = DetectionAlgo.default()) -> Optional[Face]:
+    main_face = __main_face(Size.of_image(frame), detect_faces(frame, algo))
+
+    if main_face is None:
+        return None
+
+    return Face(main_face, detect_landmarks(frame, main_face))
+
+
 # Private functions
+
+
+def __main_face(frame_size: Size, faces: List[Rect]) -> Optional[Rect]:
+    center = frame_size.center
+    min_distance = sys.maxsize
+    main_face = None
+
+    for face in faces:
+        distance = face.center.distance(center)
+
+        if distance < min_distance:
+            min_distance = distance
+            main_face = face
+
+    return main_face
 
 
 def __detect_faces(frame: np.array, func: Callable[[np.array], List[Rect]]) -> List[Rect]:

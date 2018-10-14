@@ -3,7 +3,7 @@ import numpy as np
 from time import perf_counter_ns
 
 from face_auth.config import Renderer
-from face_auth.model import img
+from face_auth.model.geometry import Size
 
 Config = Renderer.FPS
 
@@ -25,7 +25,7 @@ class FPSRenderer:
         self.__frame_tick()
 
         fps = 'FPS: {:.2f}'.format(self.fps)
-        w, h = img.size(frame)
+        w, h = Size.of_image(frame)
         cv2.putText(frame, fps, (w - self.__label_width, Config.FONT_HEIGHT + 10),
                     Config.FONT, Config.FONT_SCALE, Config.FONT_COLOR,
                     Config.FONT_THICKNESS, Config.LINE_TYPE)
