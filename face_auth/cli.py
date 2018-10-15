@@ -36,6 +36,9 @@ def process_args() -> int:
     if args.debug:
         config.DEBUG = True
 
+    if args.webcam:
+        config.Detector.WEBCAM = args.webcam
+
     if not hasattr(args, 'func'):
         raise ValueError(('Invalid argument(s). Please run "face_auth -h" or '
                           '"face_auth <subcommand> -h" for help.'))
@@ -57,6 +60,15 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Show this help message and exit.',
                        action='help')
 
+    # Config parser
+    config_parser = argparse.ArgumentParser(add_help=False)
+
+    group = config_parser.add_argument_group('Configuration')
+    group.add_argument('-w', '--webcam',
+                       help='Select a specific webcam.',
+                       type=unsigned_int,
+                       default=config.Detector.WEBCAM)
+
     # Main parser
     main_parser = argparse.ArgumentParser(prog='face_auth',
                                           description='Facial recognition framework.',
@@ -70,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = subparsers.add_parser('training',
                                    description=desc,
                                    help=desc,
-                                   parents=[help_parser],
+                                   parents=[config_parser, help_parser],
                                    add_help=False)
 
     parser.set_defaults(func=training_sub)
@@ -80,9 +92,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser = subparsers.add_parser('authentication',
                                    description=desc,
                                    help=desc,
-                                   parents=[help_parser],
+                                   parents=[config_parser, help_parser],
                                    add_help=False)
 
     parser.set_defaults(func=authentication_sub)
 
     return main_parser
+
+
+# Utils
+
+
+def unsigned_int(value: str) -> int:
+    ivalue = int(value)
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError('{} is not an unsigned int.'.format(value))
+    return ivalue
