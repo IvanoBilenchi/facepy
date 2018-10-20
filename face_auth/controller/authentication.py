@@ -4,7 +4,7 @@ from .video import VideoController
 from face_auth import config
 from face_auth.model.detector import FaceDetector
 from face_auth.model.input import WebcamStream
-from face_auth.model.recognition import FaceRecognizer
+from face_auth.model.recognition import FaceRecognizer, FaceSample
 from face_auth.view import geometry_renderer
 from face_auth.view.video import VideoView
 
@@ -16,7 +16,9 @@ class AuthenticationController(VideoController):
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
         super(AuthenticationController, self).__init__(view, input_stream)
         self.__detector = FaceDetector()
-        self.__recognizer = FaceRecognizer(config.Paths.FACE_RECOGNITION_MODEL)
+        self.__recognizer = FaceRecognizer()
+        self.__recognizer.load(config.Paths.FACE_RECOGNITION_MODEL,
+                               config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
 
     # Overrides
 
@@ -25,8 +27,9 @@ class AuthenticationController(VideoController):
 
         if face is not None:
             if key == VideoView.Key.SPACE:
-                confidence = self.__recognizer.confidence_of_prediction(frame, face.landmarks)
-                print('Confidence: {}'.format(confidence))
+                sample = FaceSample(frame, face.landmarks)
+                outcome = self.__recognizer.predict(sample)
+                print('✅ Authorized' if outcome else '⛔ Not authorized️')
 
             geometry_renderer.draw_landmarks(frame, face.landmarks)
 

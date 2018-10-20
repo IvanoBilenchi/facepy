@@ -20,24 +20,31 @@ class FaceDetector:
         CNN = 3
 
     def __init__(self, algo: Algo = Algo[config.Detector.ALGORITHM],
+                 scale_factor: int = config.Detector.SCALE_FACTOR,
                  smoothness: float = config.Detector.SMOOTHNESS) -> None:
 
         if smoothness > 1.0 or smoothness < 0.0:
             smoothness = config.Detector.SMOOTHNESS
 
+        if scale_factor < 1:
+            scale_factor = config.Detector.SCALE_FACTOR
+
         self.__algo = algo
         self.__alpha = 1.0 - smoothness
+        self.__scale_factor = scale_factor
         self.__last_detection: Face = None
 
     def detect_faces(self, frame: np.array) -> List[Rect]:
         if self.__algo == FaceDetector.Algo.HAAR:
-            return _detect_faces(frame, _haar_detect_faces)
+            detect_func = _haar_detect_faces
         elif self.__algo == FaceDetector.Algo.HOG:
-            return _detect_faces(frame, _hog_detect_faces)
+            detect_func = _hog_detect_faces
         elif self.__algo == FaceDetector.Algo.CNN:
-            return _detect_faces(frame, _cnn_detect_faces)
+            detect_func = _cnn_detect_faces
         else:
             return []
+
+        return _detect_faces(frame, self.__scale_factor, detect_func)
 
     def detect_landmarks(self, frame: np.array, rect: Rect) -> Landmarks:
         landmarks = _shape_predictor(frame, rect.to_dlib_rect())
@@ -69,10 +76,13 @@ _cnn_detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_
 _shape_predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_MODEL)
 
 
-def _detect_faces(frame: np.array, func: Callable[[np.array], List[Rect]]) -> List[Rect]:
-    scale_factor = config.Detector.SCALE_FACTOR
-    temp_frame = cv2.resize(frame, (0, 0), fx=1.0/scale_factor, fy=1.0/scale_factor)
-    return [face.scaled(scale_factor) for face in func(temp_frame)]
+def _detect_faces(frame: np.array, scale_factor: int,
+                  func: Callable[[np.array], List[Rect]]) -> List[Rect]:
+    if scale_factor <= 1:
+        return func(frame)
+    else:
+        frame = cv2.resize(frame, (0, 0), fx=1.0/scale_factor, fy=1.0/scale_factor)
+        return [face.scaled(scale_factor) for face in func(frame)]
 
 
 def _haar_detect_faces(frame: np.array) -> List[Rect]:

@@ -151,7 +151,8 @@ class Landmarks(NamedTuple):
             nose_tip=points[31:36],
             top_lip=points[48:55] + points[64:59:-1],
             bottom_lip=points[54:60] + [points[48], points[60]] + points[:63:-1],
-            outer_shape=points[18:20] + points[24:26] + points[16::-1]
+            outer_shape=points[17:20] + points[24:27] + points[11:4:-1]
+            # outer_shape=points[18:20] + points[24:26] + points[16::-1]
         )
 
     @property
