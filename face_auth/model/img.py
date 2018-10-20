@@ -33,8 +33,24 @@ def masked_to_shape(image: np.array, shape: [Point]) -> np.array:
     return cv2.bitwise_and(image, mask)
 
 
-def normalized(image: np.array) -> np.array:
-    clahe = cv2.createCLAHE(clipLimit=2.0)
+def masked_to_rect(image: np.array, rect: Rect) -> np.array:
+    mask = np.zeros(image.shape, dtype=np.uint8)
+    channel_count = image.shape[2] if is_colored(image) else 1
+    mask_color = (255,) * channel_count
+    cv2.rectangle(mask, rect.top_left, rect.bottom_right, mask_color, cv2.FILLED)
+    return cv2.bitwise_and(image, mask)
+
+
+def masked_to_oval(image: np.array, rect: Rect) -> np.array:
+    mask = np.zeros(image.shape, dtype=np.uint8)
+    channel_count = image.shape[2] if is_colored(image) else 1
+    mask_color = (255,) * channel_count
+    cv2.ellipse(mask, rect.center, rect.size, 0, 0, 360, mask_color, cv2.FILLED)
+    return cv2.bitwise_and(image, mask)
+
+
+def equalized(image: np.array) -> np.array:
+    clahe = cv2.createCLAHE(clipLimit=4)
 
     if is_colored(image):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
@@ -50,6 +66,14 @@ def normalized(image: np.array) -> np.array:
 
 def to_grayscale(image: np.array) -> np.array:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+
+def gaussian_blur(image: np.array) -> np.array:
+    return cv2.blur(image, (4, 4))
+
+
+def median_blur(image: np.array) -> np.array:
+    return cv2.medianBlur(image, 5)
 
 
 def denoised(image: np.array) -> np.array:

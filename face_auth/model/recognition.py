@@ -52,5 +52,5 @@ class FaceRecognizer:
             Step('Align', lambda f: img.transform(f, matrix, rect.size)),
             Step('Resize', lambda f: img.resized(f, Size(200, 200))),
             Step('Denoise', img.denoised),
-            Step('Normalize', img.normalized),
+            Step('Equalize', img.equalized)
         ])
