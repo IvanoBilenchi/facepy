@@ -37,8 +37,8 @@ class Renderer:
     WINDOW_NAME = 'Webcam'
     VIDEO_SIZE = (450, 450)
 
-    class FPS:
-        """FPS renderer config namespace."""
+    class Label:
+        """Label renderer config namespace."""
         FONT = cv2.FONT_HERSHEY_SIMPLEX
         FONT_HEIGHT = 14
         FONT_COLOR = (0, 255, 0)

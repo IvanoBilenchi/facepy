@@ -4,6 +4,7 @@ from enum import Enum
 
 import face_auth.config as config
 from face_auth.model import img
+from face_auth.model.fps_estimator import FPSEstimator
 from .fps_renderer import FPSRenderer
 
 
@@ -28,7 +29,12 @@ class VideoView:
     # Public methods
 
     def __init__(self, show_fps: bool = True) -> None:
-        self.__fps_renderer = FPSRenderer() if show_fps else None
+        self.__fps_estimator: FPSEstimator = None
+        self.__fps_renderer: FPSRenderer = None
+
+        if show_fps:
+            self.__fps_estimator = FPSEstimator()
+            self.__fps_renderer = FPSRenderer()
 
     def display(self) -> None:
         cv2.namedWindow(config.Renderer.WINDOW_NAME)
@@ -49,5 +55,5 @@ class VideoView:
     def render(self, frame: np.array) -> None:
         frame = img.resized(frame, config.Renderer.VIDEO_SIZE)
         if self.__fps_renderer is not None:
-            self.__fps_renderer.render(frame)
+            self.__fps_renderer.render(frame, self.__fps_estimator.tick_and_compute_fps())
         cv2.imshow(config.Renderer.WINDOW_NAME, frame)
