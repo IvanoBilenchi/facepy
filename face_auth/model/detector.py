@@ -15,9 +15,9 @@ from .geometry import Face, Landmarks, Size, Rect
 class FaceDetector:
 
     class Algo(Enum):
-        HAAR = 1
-        HOG = 2
-        CNN = 3
+        HAAR = 0
+        HOG = 1
+        CNN = 2
 
     def __init__(self, algo: Algo = Algo[config.Detector.ALGORITHM],
                  scale_factor: int = config.Detector.SCALE_FACTOR,

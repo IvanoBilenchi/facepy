@@ -5,6 +5,7 @@ from os import path
 
 
 DEBUG = False
+WEBCAM = 0
 
 
 class Paths:
@@ -18,7 +19,7 @@ class Paths:
     FACE_LANDMARKS_MODEL = path.join(RES_DIR, 'shape_predictor_68_face_landmarks.dat')
 
     FACE_RECOGNITION_MODEL = path.join(USER_DIR, 'model.yml')
-    FACE_RECOGNITION_MODEL_CONFIG = path.join(USER_DIR, 'model_config.txt')
+    FACE_RECOGNITION_MODEL_CONFIG = path.join(USER_DIR, 'model_config.json')
 
     DATASET_DIR = path.join(RES_DIR, 'lfw')
     TRAINING_SET_FILE = path.join(RES_DIR, 'training_set.tsv')
@@ -26,10 +27,14 @@ class Paths:
 
 class Detector:
     """Detector config namespace."""
-    WEBCAM = 0
-    SCALE_FACTOR = 5
     ALGORITHM = 'HOG'
+    SCALE_FACTOR = 5
     SMOOTHNESS = 0.55
+
+
+class Recognizer:
+    """Recognizer config namespace."""
+    ALGORITHM = 'LBPH'
 
 
 class Renderer:

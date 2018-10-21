@@ -4,22 +4,25 @@ from . import config
 from .controller.authentication import AuthenticationController
 from .controller.training import TrainingController
 from .model.input import WebcamStream
+from .model.recognition import FaceRecognizer
 from .view.video import VideoView
 
 
 # Subcommands
 
 
-def training_sub(args) -> int:
-    """Training subcommand."""
-    del args  # Unused
+def train_sub(args) -> int:
+    """Train subcommand."""
+    if args.algo:
+        config.Recognizer.ALGORITHM = args.algo
+
     with TrainingController(view=VideoView(), input_stream=WebcamStream()) as controller:
         controller.run_loop()
     return 0
 
 
-def authentication_sub(args) -> int:
-    """Authentication subcommand."""
+def authenticate_sub(args) -> int:
+    """Authenticate subcommand."""
     del args  # Unused
     with AuthenticationController(view=VideoView(), input_stream=WebcamStream()) as controller:
         controller.run_loop()
@@ -37,7 +40,7 @@ def process_args() -> int:
         config.DEBUG = True
 
     if args.webcam:
-        config.Detector.WEBCAM = args.webcam
+        config.WEBCAM = args.webcam
 
     if not hasattr(args, 'func'):
         raise ValueError(('Invalid argument(s). Please run "face_auth -h" or '
@@ -67,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument('-w', '--webcam',
                        help='Select a specific webcam.',
                        type=unsigned_int,
-                       default=config.Detector.WEBCAM)
+                       default=config.WEBCAM)
 
     # Main parser
     main_parser = argparse.ArgumentParser(prog='face_auth',
@@ -77,25 +80,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = main_parser.add_subparsers(title='Available commands')
 
-    # Training subcommand
+    # Train subcommand
     desc = 'Train the model to recognize a face.'
-    parser = subparsers.add_parser('training',
+    parser = subparsers.add_parser('train',
                                    description=desc,
                                    help=desc,
                                    parents=[config_parser, help_parser],
                                    add_help=False)
 
-    parser.set_defaults(func=training_sub)
+    group = parser.add_argument_group('Options')
+    group.add_argument('-a', '--algo',
+                       help='Train a specific algorithm.',
+                       choices=[a.name for a in FaceRecognizer.Algo],
+                       default=config.Recognizer.ALGORITHM)
 
-    # Authentication subcommand
+    parser.set_defaults(func=train_sub)
+
+    # Authenticate subcommand
     desc = 'Use the trained model to authenticate the user.'
-    parser = subparsers.add_parser('authentication',
+    parser = subparsers.add_parser('authenticate',
                                    description=desc,
                                    help=desc,
                                    parents=[config_parser, help_parser],
                                    add_help=False)
 
-    parser.set_defaults(func=authentication_sub)
+    parser.set_defaults(func=authenticate_sub)
 
     return main_parser
 

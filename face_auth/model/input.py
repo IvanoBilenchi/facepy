@@ -2,7 +2,7 @@ import cv2.cv2 as cv2
 import numpy as np
 from threading import Lock, Thread
 
-from face_auth.config import Detector as Config
+from face_auth import config
 
 
 class WebcamStream:
@@ -18,7 +18,7 @@ class WebcamStream:
         self.__frame_lock = Lock()
 
     def start(self) -> None:
-        self.__cam = cv2.VideoCapture(Config.WEBCAM)
+        self.__cam = cv2.VideoCapture(config.WEBCAM)
         self.__running = True
         self.__input_thread.start()
 

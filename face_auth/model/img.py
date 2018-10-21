@@ -64,6 +64,13 @@ def equalized(image: np.array) -> np.array:
     return image
 
 
+def normalized(image: np.array) -> np.array:
+    if is_colored(image):
+        return cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC3)
+    else:
+        return cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
+
+
 def to_grayscale(image: np.array) -> np.array:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

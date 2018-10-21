@@ -16,9 +16,8 @@ class AuthenticationController(VideoController):
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
         super(AuthenticationController, self).__init__(view, input_stream)
         self.__detector = FaceDetector()
-        self.__recognizer = FaceRecognizer()
-        self.__recognizer.load(config.Paths.FACE_RECOGNITION_MODEL,
-                               config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
+        self.__recognizer = FaceRecognizer.from_file(config.Paths.FACE_RECOGNITION_MODEL,
+                                                     config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
 
     # Overrides
 

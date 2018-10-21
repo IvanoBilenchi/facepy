@@ -19,7 +19,7 @@ class TrainingController(VideoController):
         super(TrainingController, self).__init__(view, input_stream)
         self.__samples: List[FaceSample] = []
         self.__detector = FaceDetector()
-        self.__recognizer = FaceRecognizer()
+        self.__recognizer = FaceRecognizer.create()
         self.__dataset = Dataset(config.Paths.DATASET_DIR, config.Paths.TRAINING_SET_FILE)
 
     # Overrides
