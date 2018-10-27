@@ -74,7 +74,8 @@ class FaceRecognizer:
 
         ground_truth = self.extract_face(ground_truth, config.DEBUG)
         positives = [self.extract_face(s) for s in samples]
-        negatives = dataset.training_samples(lambda x: self.detect_and_extract_face(x, detector))
+        negatives = dataset.training_samples(lambda x: self.extract_frontal_face(x, detector),
+                                             max_samples=config.Recognizer.MAX_SAMPLES)
 
         n1, n2 = tee(negatives, 2)
 
@@ -92,11 +93,11 @@ class FaceRecognizer:
             json.dump(cfg, config_file)
 
     @classmethod
-    def detect_and_extract_face(cls, image: np.array, detector: FaceDetector,
-                                debug: bool = False) -> Optional[np.array]:
+    def extract_frontal_face(cls, image: np.array, detector: FaceDetector,
+                             debug: bool = False) -> Optional[np.array]:
         face = detector.detect_main_face(image)
 
-        if face is None:
+        if face is None or not face.landmarks.pose_is_frontal():
             return None
 
         return cls.extract_face(FaceSample(image, face.landmarks), debug)

@@ -2,7 +2,8 @@ import csv
 import cv2.cv2 as cv2
 import numpy as np
 from os import path
-from typing import Callable, Iterable, Optional
+import sys
+from typing import Callable, Iterable
 
 
 class Dataset:
@@ -18,13 +19,18 @@ class Dataset:
     def get_image(self, person: str, index: int = 1) -> np.array:
         return cv2.imread(self.file_path(person, index))
 
-    def training_samples(self, preprocessor: Callable[[np.array],
-                                                      Optional[np.array]]) -> Iterable[np.array]:
+    def training_samples(self, preprocessor: Callable,
+                         max_samples: int = sys.maxsize) -> Iterable[np.array]:
         with open(self.training_set_tsv, 'r') as tsv:
+            count = 0
             for row in csv.reader(tsv, delimiter='\t'):
+                if count >= max_samples:
+                    break
+
                 try:
                     image = preprocessor(self.get_image(row[0], int(row[1])))
                     if image is not None:
+                        count += 1
                         yield image
                 except IndexError:
                     continue

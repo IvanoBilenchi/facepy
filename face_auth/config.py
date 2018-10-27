@@ -35,6 +35,7 @@ class Detector:
 class Recognizer:
     """Recognizer config namespace."""
     ALGORITHM = 'LBPH'
+    MAX_SAMPLES = 100
 
 
 class Renderer:
