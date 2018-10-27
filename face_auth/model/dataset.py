@@ -3,7 +3,7 @@ import cv2.cv2 as cv2
 import numpy as np
 from os import path
 import sys
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Optional
 
 
 class Dataset:
@@ -19,7 +19,7 @@ class Dataset:
     def get_image(self, person: str, index: int = 1) -> np.array:
         return cv2.imread(self.file_path(person, index))
 
-    def training_samples(self, preprocessor: Callable,
+    def training_samples(self, preprocessor: Optional[Callable] = None,
                          max_samples: int = sys.maxsize) -> Iterable[np.array]:
         with open(self.training_set_tsv, 'r') as tsv:
             count = 0
@@ -28,9 +28,14 @@ class Dataset:
                     break
 
                 try:
-                    image = preprocessor(self.get_image(row[0], int(row[1])))
+                    image = self.get_image(row[0], int(row[1]))
+
+                    if preprocessor is not None:
+                        image = preprocessor(image)
+
                     if image is not None:
                         count += 1
                         yield image
+
                 except IndexError:
                     continue

@@ -26,7 +26,7 @@ class AuthenticationController(VideoController):
 
         if face is not None:
             if key == VideoView.Key.SPACE:
-                sample = FaceSample(frame, face.landmarks)
+                sample = FaceSample(frame, face)
                 outcome = self.__recognizer.predict(sample)
                 print('✅ Authorized' if outcome else '⛔ Not authorized️')
 

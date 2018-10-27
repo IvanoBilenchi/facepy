@@ -29,9 +29,9 @@ class TrainingController(VideoController):
 
         if face is not None:
             if key == VideoView.Key.SPACE:
-                self.__samples.append(FaceSample(frame, face.landmarks))
+                self.__samples.append(FaceSample(frame, face))
             elif key == VideoView.Key.ENTER:
-                self.__recognizer.train(FaceSample(frame, face.landmarks), self.__samples,
+                self.__recognizer.train(FaceSample(frame, face), self.__samples,
                                         FaceDetector(scale_factor=1), self.__dataset)
                 self.__recognizer.save(config.Paths.FACE_RECOGNITION_MODEL,
                                        config.Paths.FACE_RECOGNITION_MODEL_CONFIG)

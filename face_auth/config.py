@@ -17,8 +17,10 @@ class Paths:
     HAAR_FACE_DETECTOR_MODEL = path.join(cvdata.haarcascades, 'haarcascade_frontalface_default.xml')
     CNN_FACE_DETECTOR_MODEL = path.join(RES_DIR, 'mmod_human_face_detector.dat')
     FACE_LANDMARKS_MODEL = path.join(RES_DIR, 'shape_predictor_68_face_landmarks.dat')
+    FACE_LANDMARKS_SMALL_MODEL = path.join(RES_DIR, 'shape_predictor_5_face_landmarks.dat')
+    CNN_FACE_DESCRIPTOR_MODEL = path.join(RES_DIR, 'dlib_face_recognition_resnet_model_v1.dat')
 
-    FACE_RECOGNITION_MODEL = path.join(USER_DIR, 'model.yml')
+    FACE_RECOGNITION_MODEL = path.join(USER_DIR, 'model.dat')
     FACE_RECOGNITION_MODEL_CONFIG = path.join(USER_DIR, 'model_config.json')
 
     DATASET_DIR = path.join(RES_DIR, 'lfw')
@@ -34,7 +36,7 @@ class Detector:
 
 class Recognizer:
     """Recognizer config namespace."""
-    ALGORITHM = 'LBPH'
+    ALGORITHM = 'CNN'
     MAX_SAMPLES = 100
 
 

@@ -1,4 +1,5 @@
 import cv2.cv2 as cv2
+import dlib
 import json
 import numpy as np
 import sys
@@ -9,14 +10,14 @@ from typing import Iterable, NamedTuple, Optional
 from face_auth import config
 from . import img
 from .dataset import Dataset
-from .detector import FaceDetector
-from .geometry import Landmarks, Size
+from .detector import Face, FaceDetector
+from .geometry import Size
 from .process import Pipeline, Step
 
 
 class FaceSample(NamedTuple):
     image: np.array
-    landmarks: Landmarks
+    face: Face
 
 
 class FaceRecognizer:
@@ -25,6 +26,7 @@ class FaceRecognizer:
         EIGEN = 0
         FISHER = 1
         LBPH = 2
+        CNN = 3
 
     class ConfigKey:
         ALGO = 'algo'
@@ -39,8 +41,10 @@ class FaceRecognizer:
             return EigenRecognizer()
         elif algo == FaceRecognizer.Algo.FISHER:
             return FisherRecognizer()
-        else:
+        elif algo == FaceRecognizer.Algo.LBPH:
             return LBPHRecognizer()
+        else:
+            return CNNRecognizer()
 
     @classmethod
     def from_file(cls, model_path: str, config_path: str) -> 'FaceRecognizer':
@@ -59,7 +63,8 @@ class FaceRecognizer:
         self.threshold = 0.0
 
     def confidence_of_prediction(self, sample: FaceSample) -> float:
-        confidence = self._predict(FaceRecognizer.extract_face(sample, config.DEBUG))
+        image = self.__extract_face(sample, config.DEBUG)
+        confidence = self._predict(image)
 
         if config.DEBUG:
             print('Prediction confidence: {:.2f} (threshold: {:.2f})'.format(confidence,
@@ -72,9 +77,9 @@ class FaceRecognizer:
     def train(self, ground_truth: FaceSample, samples: [FaceSample],
               detector: FaceDetector, dataset: Dataset) -> None:
 
-        ground_truth = self.extract_face(ground_truth, config.DEBUG)
-        positives = [self.extract_face(s) for s in samples]
-        negatives = dataset.training_samples(lambda x: self.extract_frontal_face(x, detector),
+        ground_truth = self.__extract_face(ground_truth, config.DEBUG)
+        positives = [self.__extract_face(s) for s in samples]
+        negatives = dataset.training_samples(lambda x: self.__extract_frontal_face(x, detector),
                                              max_samples=config.Recognizer.MAX_SAMPLES)
 
         n1, n2 = tee(negatives, 2)
@@ -88,40 +93,17 @@ class FaceRecognizer:
         with open(config_path, mode='w') as config_file:
             cfg = {
                 self.ConfigKey.ALGO: self.algo().name,
-                self.ConfigKey.THRESH: '{:.2f}'.format(self.threshold)
+                self.ConfigKey.THRESH: '{:.5f}'.format(self.threshold)
             }
             json.dump(cfg, config_file)
-
-    @classmethod
-    def extract_frontal_face(cls, image: np.array, detector: FaceDetector,
-                             debug: bool = False) -> Optional[np.array]:
-        face = detector.detect_main_face(image)
-
-        if face is None or not face.landmarks.pose_is_frontal():
-            return None
-
-        return cls.extract_face(FaceSample(image, face.landmarks), debug)
-
-    @classmethod
-    def extract_face(cls, sample: FaceSample, debug: bool = False) -> np.array:
-        rect = sample.landmarks.square()
-        shape = sample.landmarks.outer_shape
-        matrix = sample.landmarks.alignment_matrix()
-
-        return Pipeline.execute('Face extraction', sample.image, debug, [
-            Step('To grayscale', img.to_grayscale),
-            Step('Mask', lambda f: img.masked_to_shape(f, shape)),
-            Step('Align', lambda f: img.transform(f, matrix, rect.size)),
-            Step('Resize', lambda f: img.resized(f, Size(100, 100))),
-            Step('Denoise', img.denoised),
-            Step('Equalize', img.equalized),
-            Step('Normalize', img.normalized)
-        ])
 
     # Override
 
     def algo(self) -> Algo:
         raise NotImplementedError
+
+    def needs_preprocessing(self) -> bool:
+        return True
 
     def _predict(self, image: np.array) -> float:
         raise NotImplementedError
@@ -154,6 +136,36 @@ class FaceRecognizer:
             print('Ground confidence: {:.2f}'.format(ground_confidence))
             print('Best confidence in training set: {:.2f}'.format(min_confidence))
             print('Learned treshold: {:.2f}'.format(self.threshold))
+
+    def __extract_frontal_face(self, image: np.array, detector: FaceDetector,
+                               debug: bool = False) -> Optional[np.array]:
+        face = detector.detect_main_face(image)
+
+        if face is None or not face.landmarks.pose_is_frontal():
+            return None
+
+        return self.__extract_face(FaceSample(image, face), debug)
+
+    def __extract_face(self, sample: FaceSample, debug: bool = False) -> np.array:
+
+        if self.needs_preprocessing():
+            rect = sample.face.landmarks.square()
+            shape = sample.face.landmarks.outer_shape
+            matrix = sample.face.landmarks.alignment_matrix()
+
+            steps = [
+                Step('To grayscale', img.to_grayscale),
+                Step('Mask', lambda f: img.masked_to_shape(f, shape)),
+                Step('Align', lambda f: img.transform(f, matrix, rect.size)),
+                Step('Resize', lambda f: img.resized(f, Size(100, 100))),
+                Step('Denoise', img.denoised),
+                Step('Equalize', img.equalized),
+                Step('Normalize', img.normalized)
+            ]
+        else:
+            steps = [Step('Resize', lambda f: img.resized(f, Size(250, 250)))]
+
+        return Pipeline.execute('Face extraction', sample.image, debug, steps)
 
 
 class EigenRecognizer(FaceRecognizer):
@@ -252,3 +264,60 @@ class LBPHRecognizer(FaceRecognizer):
 
     def _save(self, model_path: str) -> None:
         self.__rec.save(model_path)
+
+
+class CNNRecognizer(FaceRecognizer):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.__embeddings = []
+        self.__detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
+        self.__predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
+        self.__net = dlib.face_recognition_model_v1(config.Paths.CNN_FACE_DESCRIPTOR_MODEL)
+
+    # Overrides
+
+    def algo(self) -> FaceRecognizer.Algo:
+        return FaceRecognizer.Algo.CNN
+
+    def needs_preprocessing(self) -> bool:
+        return False
+
+    def _predict(self, image: np.array) -> float:
+        sample = self.__compute_embedding(image)
+        min_distance = float('inf')
+
+        for embedding in self.__embeddings:
+            distance = self.__distance(embedding, sample)
+            if distance < min_distance:
+                min_distance = distance
+
+        return min_distance
+
+    def _train(self, positive_samples: Iterable[np.array],
+               negative_samples: Iterable[np.array]) -> None:
+        del negative_samples  # Unused
+        self.__embeddings = [self.__compute_embedding(i) for i in positive_samples]
+
+    def _load(self, model_path: str) -> None:
+        with open(model_path, mode='r') as model_file:
+            json_array = json.load(model_file)
+
+            if isinstance(json_array, list):
+                self.__embeddings = [np.asarray(e) for e in json_array if isinstance(e, list)]
+
+    def _save(self, model_path: str) -> None:
+        with open(model_path, mode='w') as model_file:
+            embeddings = [e.tolist() for e in self.__embeddings]
+            json.dump(embeddings, model_file)
+
+    # Private
+
+    def __distance(self, embedding: np.array, other: np.array) -> float:
+        return np.linalg.norm(embedding - other)
+
+    def __compute_embedding(self, image: np.array) -> np.array:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        rect = self.__detector(image)[0].rect
+        landmarks = self.__predictor(image, rect)
+        return np.array(self.__net.compute_face_descriptor(image, landmarks))
