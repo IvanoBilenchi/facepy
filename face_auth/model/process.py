@@ -29,7 +29,7 @@ class Pipeline:
     def run(self, frame: np.array) -> np.array:
         return self.__run_debug(frame) if self.debug else self.__run(frame)
 
-    # Private methods
+    # Private
 
     def __run_debug(self, frame: np.array) -> np.array:
         self.__save(frame, 0, 'start')

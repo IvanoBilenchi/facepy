@@ -30,7 +30,7 @@ class WebcamStream:
         with self.__frame_lock:
             return self.__frame
 
-    # Private methods
+    # Private
 
     def __acquire_loop(self) -> None:
         while self.__running:

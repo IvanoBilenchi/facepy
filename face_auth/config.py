@@ -3,6 +3,8 @@ import cv2.data as cvdata
 import sys
 from os import path
 
+from .view import color
+
 
 DEBUG = False
 WEBCAM = 0
@@ -49,21 +51,24 @@ class Renderer:
         """Label renderer config namespace."""
         FONT = cv2.FONT_HERSHEY_SIMPLEX
         FONT_HEIGHT = 14
-        FONT_COLOR = (0, 255, 0)
+        FONT_COLOR = color.WHITE
         FONT_THICKNESS = 1
         FONT_SCALE = cv2.getFontScaleFromHeight(FONT, FONT_HEIGHT)
         LINE_TYPE = cv2.LINE_AA
+        PADDING = 10
+        BAR_ALPHA = 0.6
 
     class Rect:
         """Rect renderer config namespace."""
         THICKNESS = 3
-        COLOR = (255, 0, 0)
+        COLOR = color.BLUE
         LINE_TYPE = cv2.LINE_AA
 
     class Landmarks:
         """Landmarks renderer config namespace."""
         THICKNESS = 2
-        BASE_COLOR = (0, 255, 0)
-        EYE_COLOR = (255, 255, 255)
-        MOUTH_COLOR = (0, 0, 255)
+        BASE_COLOR = color.GREEN
+        EYE_COLOR = color.WHITE
+        MOUTH_COLOR = color.RED
+        ALPHA = 0.6
         LINE_TYPE = cv2.LINE_AA

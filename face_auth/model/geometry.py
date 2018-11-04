@@ -136,7 +136,6 @@ class Landmarks(NamedTuple):
     nose_tip: List[Point]
     top_lip: List[Point]
     bottom_lip: List[Point]
-    outer_shape: List[Point]
 
     @classmethod
     def from_dlib_landmarks(cls, landmarks) -> 'Landmarks':
@@ -151,14 +150,20 @@ class Landmarks(NamedTuple):
             nose_tip=points[31:36],
             top_lip=points[48:55] + points[64:59:-1],
             bottom_lip=points[54:60] + [points[48], points[60]] + points[:63:-1],
-            outer_shape=points[17:20] + points[24:27] + points[11:4:-1]
-            # outer_shape=points[18:20] + points[24:26] + points[16::-1]
         )
 
     @property
     def all(self) -> List[Point]:
         return (self.chin + self.left_eyebrow + self.right_eyebrow + self.left_eye +
                 self.right_eye + self.nose_bridge + self.nose_tip + self.top_lip + self.bottom_lip)
+
+    @property
+    def thin_shape(self) -> List[Point]:
+        return self.left_eyebrow[:3] + self.right_eyebrow[-3:] + self.chin[11:4:-1]
+
+    @property
+    def outer_shape(self) -> List[Point]:
+        return self.left_eyebrow[1:3] + self.right_eyebrow[-3:-1] + self.chin[::-1]
 
     def rect(self) -> Rect:
         min_x, min_y, max_x, max_y = sys.maxsize, sys.maxsize, 0, 0
@@ -229,7 +234,7 @@ class Landmarks(NamedTuple):
 
         for landmark in [self.chin, self.left_eyebrow, self.right_eyebrow, self.left_eye,
                          self.right_eye, self.nose_bridge, self.nose_tip, self.top_lip,
-                         self.bottom_lip, self.outer_shape]:
+                         self.bottom_lip, self.thin_shape]:
             trans_landmark = np.array([[p.x, p.y] for p in landmark], dtype=np.float32)
             trans_landmark = cv2.perspectiveTransform(np.array([trans_landmark]), matrix)
             out.append(trans_landmark)
@@ -316,5 +321,4 @@ def _landmarks_exp_avg(c: Landmarks, h: Landmarks, a: float) -> Landmarks:
         nose_tip=_point_list_exp_avg(c.nose_tip, h.nose_tip, a),
         top_lip=_point_list_exp_avg(c.top_lip, h.top_lip, a),
         bottom_lip=_point_list_exp_avg(c.bottom_lip, h.bottom_lip, a),
-        outer_shape=_point_list_exp_avg(c.outer_shape, h.outer_shape, a)
     )

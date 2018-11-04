@@ -5,7 +5,7 @@ import numpy as np
 import sys
 from enum import Enum
 from itertools import islice, tee
-from typing import Iterable, NamedTuple, Optional
+from typing import Iterable, Optional
 
 from face_auth import config
 from . import img
@@ -15,9 +15,11 @@ from .geometry import Size
 from .process import Pipeline, Step
 
 
-class FaceSample(NamedTuple):
-    image: np.array
-    face: Face
+class FaceSample:
+
+    def __init__(self, image: np.array, face: Face) -> None:
+        self.image = image.copy()
+        self.face = face
 
 
 class FaceRecognizer:
@@ -150,7 +152,7 @@ class FaceRecognizer:
 
         if self.needs_preprocessing():
             rect = sample.face.landmarks.square()
-            shape = sample.face.landmarks.outer_shape
+            shape = sample.face.landmarks.thin_shape
             matrix = sample.face.landmarks.alignment_matrix()
 
             steps = [

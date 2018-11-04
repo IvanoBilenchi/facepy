@@ -4,7 +4,7 @@ from time import perf_counter_ns
 class FPSEstimator:
     """Estimates FPS."""
 
-    # Public methods
+    # Public
 
     def __init__(self) -> None:
         self.fps = 0.0
