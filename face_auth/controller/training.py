@@ -5,7 +5,7 @@ from typing import List
 from .video import VideoController
 from face_auth import config
 from face_auth.model.dataset import Dataset
-from face_auth.model.detector import FaceDetector
+from face_auth.model.detector import StaticFaceDetector, VideoFaceDetector
 from face_auth.model.input import WebcamStream
 from face_auth.model.recognition import FaceRecognizer, FaceSample
 from face_auth.view import geometry_renderer
@@ -28,7 +28,7 @@ class TrainingController(VideoController):
         super(TrainingController, self).__init__(view, input_stream)
 
         self.__samples: List[FaceSample] = []
-        self.__detector = FaceDetector()
+        self.__detector = VideoFaceDetector()
         self.__recognizer = FaceRecognizer.create()
         self.__dataset = Dataset(config.Paths.DATASET_DIR, config.Paths.TRAINING_SET_FILE)
         self.__is_training = False
@@ -65,7 +65,7 @@ class TrainingController(VideoController):
         self._view.bottom_text = LabelText.TRAINING
 
         self.__recognizer.train(ground_truth, self.__samples,
-                                FaceDetector(scale_factor=1), self.__dataset)
+                                StaticFaceDetector(scale_factor=1), self.__dataset)
         self.__recognizer.save(config.Paths.FACE_RECOGNITION_MODEL,
                                config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
         self.__samples = []

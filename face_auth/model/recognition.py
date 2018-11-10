@@ -10,7 +10,7 @@ from typing import Iterable, Optional
 from face_auth import config
 from . import img
 from .dataset import Dataset
-from .detector import Face, FaceDetector
+from .detector import Face, StaticFaceDetector
 from .geometry import Size
 from .process import Pipeline, Step
 
@@ -77,7 +77,7 @@ class FaceRecognizer:
         return self.confidence_of_prediction(sample) < self.threshold
 
     def train(self, ground_truth: FaceSample, samples: [FaceSample],
-              detector: FaceDetector, dataset: Dataset) -> None:
+              detector: StaticFaceDetector, dataset: Dataset) -> None:
 
         ground_truth = self.__extract_face(ground_truth, config.DEBUG)
         positives = [self.__extract_face(s) for s in samples]
@@ -139,7 +139,7 @@ class FaceRecognizer:
             print('Best confidence in training set: {:.2f}'.format(min_confidence))
             print('Learned treshold: {:.2f}'.format(self.threshold))
 
-    def __extract_frontal_face(self, image: np.array, detector: FaceDetector,
+    def __extract_frontal_face(self, image: np.array, detector: StaticFaceDetector,
                                debug: bool = False) -> Optional[np.array]:
         face = detector.detect_main_face(image)
 

@@ -4,7 +4,7 @@ from time import sleep
 
 from .video import VideoController
 from face_auth import config
-from face_auth.model.detector import FaceDetector
+from face_auth.model.detector import VideoFaceDetector
 from face_auth.model.geometry import Face
 from face_auth.model.input import WebcamStream
 from face_auth.model.recognition import FaceRecognizer, FaceSample
@@ -25,7 +25,7 @@ class AuthenticationController(VideoController):
 
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
         super(AuthenticationController, self).__init__(view, input_stream)
-        self.__detector = FaceDetector()
+        self.__detector = VideoFaceDetector()
         self.__recognizer = FaceRecognizer.from_file(config.Paths.FACE_RECOGNITION_MODEL,
                                                      config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
 

@@ -19,20 +19,26 @@ class FaceDetector:
         HOG = 1
         CNN = 2
 
-    def __init__(self, algo: Algo = Algo[config.Detector.ALGORITHM],
-                 scale_factor: int = config.Detector.SCALE_FACTOR,
-                 smoothness: float = config.Detector.SMOOTHNESS) -> None:
+    def detect_faces(self, frame: np.array) -> List[Rect]:
+        raise NotImplementedError
 
-        if smoothness > 1.0 or smoothness < 0.0:
-            smoothness = config.Detector.SMOOTHNESS
+    def detect_landmarks(self, frame: np.array, rect: Rect) -> Landmarks:
+        raise NotImplementedError
+
+    def detect_main_face(self, frame: np.array) -> Optional[Face]:
+        raise NotImplementedError
+
+
+class StaticFaceDetector(FaceDetector):
+
+    def __init__(self, algo: FaceDetector.Algo = FaceDetector.Algo[config.Detector.ALGORITHM],
+                 scale_factor: int = config.Detector.SCALE_FACTOR) -> None:
 
         if scale_factor < 1:
             scale_factor = config.Detector.SCALE_FACTOR
 
         self.__algo = algo
-        self.__alpha = 1.0 - smoothness
         self.__scale_factor = scale_factor
-        self.__last_detection: Face = None
 
     def detect_faces(self, frame: np.array) -> List[Rect]:
         if self.__algo == FaceDetector.Algo.HAAR:
@@ -59,10 +65,75 @@ class FaceDetector:
 
         face = Face(main_face_rect, self.detect_landmarks(frame, main_face_rect))
 
+        return face if face.landmarks.pose_is_valid() else None
+
+
+class VideoFaceDetector(FaceDetector):
+
+    def __init__(self, algo: FaceDetector.Algo = FaceDetector.Algo[config.Detector.ALGORITHM],
+                 scale_factor: int = config.Detector.SCALE_FACTOR,
+                 smoothness: float = config.Detector.SMOOTHNESS) -> None:
+
+        if smoothness > 1.0 or smoothness < 0.0:
+            smoothness = config.Detector.SMOOTHNESS
+
+        self.__alpha = 1.0 - smoothness
+        self.__detector = StaticFaceDetector(algo, scale_factor)
+
+        self.__last_detection: Face = None
+        self.__last_detection_approximation_count = 0
+        self.__detection_success_history = []
+
+    def detect_faces(self, frame: np.array) -> List[Rect]:
+        return self.__detector.detect_faces(frame)
+
+    def detect_landmarks(self, frame: np.array, rect: Rect) -> Landmarks:
+        return self.__detector.detect_landmarks(frame, rect)
+
+    def detect_main_face(self, frame: np.array) -> Optional[Face]:
+        face = self.__detector.detect_main_face(frame)
+
+        if face is None:
+            self.__update_success_history(False)
+            face = self.__last_detection_cache()
+
+            if face is None:
+                return None
+
+        else:
+            self.__update_success_history(True)
+
+        if self.__compute_success_rate() < 0.6:
+            return None
+
         if self.__last_detection:
             face = face.weighting_previous(self.__last_detection, self.__alpha)
 
         self.__last_detection = face
+
+        return face
+
+    # Private
+
+    def __update_success_history(self, success: bool) -> None:
+        if len(self.__detection_success_history) == 30:
+            self.__detection_success_history.pop(0)
+        self.__detection_success_history.append(1.0 if success else 0.0)
+
+    def __compute_success_rate(self) -> float:
+        count = len(self.__detection_success_history)
+        return sum(self.__detection_success_history) / count
+
+    def __last_detection_cache(self) -> Optional[Face]:
+        face = None
+
+        if self.__last_detection is not None:
+            if self.__last_detection_approximation_count < 10:
+                face = self.__last_detection
+                self.__last_detection_approximation_count += 1
+            else:
+                self.__last_detection = None
+                self.__last_detection_approximation_count = 0
 
         return face
 

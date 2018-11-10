@@ -242,6 +242,12 @@ class Landmarks(NamedTuple):
         return Landmarks(*out)
 
     def pose_is_frontal(self) -> bool:
+        return self.__check_pose(1.2, -100, 0.2)
+
+    def pose_is_valid(self) -> bool:
+        return self.__check_pose(1.0, -200, 0.6)
+
+    def __check_pose(self, alpha: float, beta: float, gamma: float) -> bool:
         nose_tip_l, nose_tip_r = self.nose_tip[0], self.nose_tip[-1]
         nose_bridge_t, nose_bridge_b = self.nose_bridge[0], self.nose_bridge[-1]
 
@@ -250,7 +256,7 @@ class Landmarks(NamedTuple):
 
         # Discard faces tilted upwards.
         # Check ratio between nose height and width.
-        if nose_h / nose_w < 1.2:
+        if nose_h / nose_w < alpha:
             return False
 
         v1 = Point(nose_tip_r.x - nose_tip_l.x, nose_tip_r.y - nose_tip_l.y)
@@ -259,16 +265,15 @@ class Landmarks(NamedTuple):
         # Discard faces tilted downwards.
         # Use cross product to detect if the lowest point of the nose bridge
         # crosses the line at the base of the nose tip.
-        if v1.x * v2.y - v1.y * v2.x < 0:
+        if v1.x * v2.y - v1.y * v2.x < beta:
             return False
 
         l_eye, r_eye = self.left_eye[3], self.right_eye[0]
         nose_eye_ratio = nose_bridge_t.distance(l_eye) / nose_bridge_t.distance(r_eye)
-        tolerance = 0.2
 
         # Discard faces tilted sideways.
         # Check ratio between eyes and base of the nose bridge.
-        return 1.0 - tolerance < nose_eye_ratio < 1.0 + tolerance
+        return 1.0 - gamma < nose_eye_ratio < 1.0 + gamma
 
 
 class Face(NamedTuple):
