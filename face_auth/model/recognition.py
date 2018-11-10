@@ -5,13 +5,13 @@ import numpy as np
 import sys
 from enum import Enum
 from itertools import islice, tee
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 from face_auth import config
 from . import img
 from .dataset import Dataset
 from .detector import Face, StaticFaceDetector
-from .geometry import Size
+from .geometry import Landmarks, Point, Size
 from .process import Pipeline, Step
 
 
@@ -28,7 +28,8 @@ class FaceRecognizer:
         EIGEN = 0
         FISHER = 1
         LBPH = 2
-        CNN = 3
+        EUCLIDEAN = 3
+        CNN = 4
 
     class ConfigKey:
         ALGO = 'algo'
@@ -45,6 +46,8 @@ class FaceRecognizer:
             return FisherRecognizer()
         elif algo == FaceRecognizer.Algo.LBPH:
             return LBPHRecognizer()
+        elif algo == FaceRecognizer.Algo.EUCLIDEAN:
+            return EuclideanRecognizer()
         else:
             return CNNRecognizer()
 
@@ -99,7 +102,7 @@ class FaceRecognizer:
             }
             json.dump(cfg, config_file)
 
-    # Override
+    # Must override
 
     def algo(self) -> Algo:
         raise NotImplementedError
@@ -268,26 +271,32 @@ class LBPHRecognizer(FaceRecognizer):
         self.__rec.save(model_path)
 
 
-class CNNRecognizer(FaceRecognizer):
+class EmbeddingsRecognizer(FaceRecognizer):
 
     def __init__(self) -> None:
         super().__init__()
         self.__embeddings = []
-        self.__detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
-        self.__predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
-        self.__net = dlib.face_recognition_model_v1(config.Paths.CNN_FACE_DESCRIPTOR_MODEL)
 
-    # Overrides
+    # Must override
 
     def algo(self) -> FaceRecognizer.Algo:
-        return FaceRecognizer.Algo.CNN
+        raise NotImplementedError
+
+    def _compute_embedding(self, image: np.array) -> np.array:
+        raise NotImplementedError
+
+    # Overrides
 
     def needs_preprocessing(self) -> bool:
         return False
 
     def _predict(self, image: np.array) -> float:
-        sample = self.__compute_embedding(image)
+        sample = self._compute_embedding(image)
+
         min_distance = float('inf')
+
+        if sample is None:
+            return min_distance
 
         for embedding in self.__embeddings:
             distance = self.__distance(embedding, sample)
@@ -299,7 +308,7 @@ class CNNRecognizer(FaceRecognizer):
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:
         del negative_samples  # Unused
-        self.__embeddings = [self.__compute_embedding(i) for i in positive_samples]
+        self.__embeddings = [self._compute_embedding(i) for i in positive_samples]
 
     def _load(self, model_path: str) -> None:
         with open(model_path, mode='r') as model_file:
@@ -318,7 +327,68 @@ class CNNRecognizer(FaceRecognizer):
     def __distance(self, embedding: np.array, other: np.array) -> float:
         return np.linalg.norm(embedding - other)
 
-    def __compute_embedding(self, image: np.array) -> np.array:
+
+class EuclideanRecognizer(EmbeddingsRecognizer):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.__detector = StaticFaceDetector(scale_factor=1)
+
+    # Overrides
+
+    def algo(self) -> FaceRecognizer.Algo:
+        return FaceRecognizer.Algo.EUCLIDEAN
+
+    def _compute_embedding(self, image: np.array) -> np.array:
+        face = self.__detector.detect_main_face(image)
+
+        if face is None:
+            return None
+
+        traits = self.__rec_traits(face.landmarks)
+        n_traits = len(traits)
+        norm_factor = face.landmarks.left_eye[0].distance(face.landmarks.right_eye[3])
+
+        embedding = np.zeros(self.__num_combinations_two(n_traits))
+        idx = 0
+
+        for i in range(n_traits - 1):
+            for j in range(i + 1, n_traits):
+                embedding[idx] = traits[i].distance(traits[j]) / norm_factor
+                idx += 1
+
+        return embedding
+
+    # Private
+
+    def __rec_traits(self, lm: Landmarks) -> List[Point]:
+        return [
+            lm.left_eye[0], lm.left_eye[3], lm.right_eye[0], lm.right_eye[3],
+            lm.nose_bridge[0], lm.nose_tip[2], lm.nose_tip[0], lm.nose_tip[-1],
+            lm.top_lip[0], lm.top_lip[2], lm.top_lip[4], lm.top_lip[6], lm.bottom_lip[3]
+        ]
+
+    def __num_combinations_two(self, count: int) -> int:
+        return count * (count - 1) // 2
+
+    def __distance(self, embedding: np.array, other: np.array) -> float:
+        return np.linalg.norm(embedding - other)
+
+
+class CNNRecognizer(EmbeddingsRecognizer):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.__detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
+        self.__predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
+        self.__net = dlib.face_recognition_model_v1(config.Paths.CNN_FACE_DESCRIPTOR_MODEL)
+
+    # Overrides
+
+    def algo(self) -> FaceRecognizer.Algo:
+        return FaceRecognizer.Algo.CNN
+
+    def _compute_embedding(self, image: np.array) -> np.array:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         rect = self.__detector(image)[0].rect
         landmarks = self.__predictor(image, rect)
