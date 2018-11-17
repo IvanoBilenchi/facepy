@@ -1,41 +1,91 @@
-import csv
 import cv2.cv2 as cv2
 import numpy as np
-from os import path
+import os
 import sys
+from os import path
 from typing import Callable, Iterable, Optional
+
+
+class DataSample:
+
+    @property
+    def name(self) -> str:
+        components = path.basename(self.file_path).split('_')
+        return ' '.join(components[:-1])
+
+    @property
+    def dir_path(self) -> str:
+        return path.dirname(self.file_path)
+
+    @property
+    def image(self) -> np.array:
+        if self.__image is None:
+            self.__image = cv2.imread(self.file_path)
+        return self.__image
+
+    @image.setter
+    def image(self, image: np.array) -> None:
+        self.__image = image
+
+    def __init__(self, file_path: str) -> None:
+        self.file_path = file_path
+        self.__image: np.array = None
 
 
 class Dataset:
 
-    def __init__(self, data_dir: str, training_set_tsv: str) -> None:
+    def __init__(self, data_dir: str) -> None:
         self.data_dir = data_dir
-        self.training_set_tsv = training_set_tsv
 
-    def file_path(self, person: str, index: int = 1) -> str:
-        file_name = '{}_{:04d}.jpg'.format(person, index)
-        return path.join(self.data_dir, person, file_name)
+    def negative_verification_images(self, person_name: str = None,
+                                     sample_filter: Callable = None,
+                                     max_samples: int = sys.maxsize) -> Iterable[np.array]:
 
-    def get_image(self, person: str, index: int = 1) -> np.array:
-        return cv2.imread(self.file_path(person, index))
+        skip_person: str = None
+        n_samples = 0
 
-    def training_samples(self, preprocessor: Optional[Callable] = None,
-                         max_samples: int = sys.maxsize) -> Iterable[np.array]:
-        with open(self.training_set_tsv, 'r') as tsv:
-            count = 0
-            for row in csv.reader(tsv, delimiter='\t'):
-                if count >= max_samples:
-                    break
+        for sample in self.samples(sample_filter):
 
-                try:
-                    image = self.get_image(row[0], int(row[1]))
+            sample_name = sample.name
 
-                    if preprocessor is not None:
-                        image = preprocessor(image)
+            if skip_person != sample_name:
+                skip_person = None
 
-                    if image is not None:
-                        count += 1
-                        yield image
+            if sample_name == person_name or sample_name == skip_person:
+                continue
 
-                except IndexError:
-                    continue
+            skip_person = sample_name
+
+            if n_samples < max_samples:
+                n_samples += 1
+                yield sample.image
+            else:
+                break
+
+    def samples_in_dir(self, dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
+        paths = [path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.jpg')]
+        paths.sort()
+
+        for file_path in paths:
+            sample = DataSample(file_path)
+
+            if sample_filter:
+                sample = sample_filter(sample)
+
+            if sample:
+                yield sample
+
+    def samples_for_person(self, person_name: str,
+                           sample_filter: Callable = None) -> Iterable[DataSample]:
+        person_dir = path.join(self.data_dir, person_name.replace(' ', '_'))
+        return self.samples_in_dir(person_dir, sample_filter=sample_filter)
+
+    def samples(self, sample_filter: Callable[[DataSample],
+                                              Optional[DataSample]] = None) -> Iterable[DataSample]:
+        dirs = [path.join(self.data_dir, d) for d in os.listdir(self.data_dir)]
+        dirs = [d for d in dirs if path.isdir(d)]
+        dirs.sort()
+
+        for dir_path in dirs:
+            for sample in self.samples_in_dir(dir_path, sample_filter=sample_filter):
+                yield sample

@@ -1,30 +1,30 @@
 import argparse
 
 from . import config
-from .controller.authentication import AuthenticationController
-from .controller.training import TrainingController
 from .model.input import WebcamStream
-from .model.recognition import FaceRecognizer
+from .model.verification import FaceVerifier
 from .view.video import VideoView
+from .controller.interactive.verification import VerificationVideoController
+from .controller.interactive.training import TrainVerifierVideoController
 
 
 # Subcommands
 
 
-def train_sub(args) -> int:
-    """Train subcommand."""
+def train_verifier_sub(args) -> int:
+    """train-verifier subcommand."""
     if args.algo:
         config.Recognizer.ALGORITHM = args.algo
 
-    with TrainingController(view=VideoView(), input_stream=WebcamStream()) as controller:
+    with TrainVerifierVideoController(view=VideoView(), input_stream=WebcamStream()) as controller:
         controller.run_loop()
     return 0
 
 
-def authenticate_sub(args) -> int:
-    """Authenticate subcommand."""
+def verify_sub(args) -> int:
+    """verify subcommand."""
     del args  # Unused
-    with AuthenticationController(view=VideoView(), input_stream=WebcamStream()) as controller:
+    with VerificationVideoController(view=VideoView(), input_stream=WebcamStream()) as controller:
         controller.run_loop()
     return 0
 
@@ -80,9 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = main_parser.add_subparsers(title='Available commands')
 
-    # Train subcommand
-    desc = 'Train the model to recognize a face.'
-    parser = subparsers.add_parser('train',
+    # train-verifier subcommand
+    desc = 'Train a face verifier.'
+    parser = subparsers.add_parser('train-verifier',
                                    description=desc,
                                    help=desc,
                                    parents=[config_parser, help_parser],
@@ -90,21 +90,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('Options')
     group.add_argument('-a', '--algo',
-                       help='Train a specific algorithm.',
-                       choices=[a.name for a in FaceRecognizer.Algo],
+                       help='Choose specific algorithm.',
+                       choices=[a.name for a in FaceVerifier.Algo],
                        default=config.Recognizer.ALGORITHM)
 
-    parser.set_defaults(func=train_sub)
+    parser.set_defaults(func=train_verifier_sub)
 
-    # Authenticate subcommand
-    desc = 'Use the trained model to authenticate the user.'
-    parser = subparsers.add_parser('authenticate',
+    # verify subcommand
+    desc = 'Use the trained model to verify the user.'
+    parser = subparsers.add_parser('verify',
                                    description=desc,
                                    help=desc,
                                    parents=[config_parser, help_parser],
                                    add_help=False)
 
-    parser.set_defaults(func=authenticate_sub)
+    parser.set_defaults(func=verify_sub)
 
     return main_parser
 

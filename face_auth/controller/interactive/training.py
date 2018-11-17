@@ -7,7 +7,7 @@ from face_auth import config
 from face_auth.model.dataset import Dataset
 from face_auth.model.detector import StaticFaceDetector, VideoFaceDetector
 from face_auth.model.input import WebcamStream
-from face_auth.model.recognition import FaceRecognizer, FaceSample
+from face_auth.model.verification import FaceVerifier, FaceSample
 from face_auth.view import geometry_renderer
 from face_auth.view.video import VideoView
 
@@ -20,17 +20,17 @@ class LabelText:
     SAMPLES = 'Samples: {}'
 
 
-class TrainingController(VideoController):
+class TrainVerifierVideoController(VideoController):
 
     # Public
 
     def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
-        super(TrainingController, self).__init__(view, input_stream)
+        super(TrainVerifierVideoController, self).__init__(view, input_stream)
 
         self.__samples: List[FaceSample] = []
         self.__detector = VideoFaceDetector()
-        self.__recognizer = FaceRecognizer.create()
-        self.__dataset = Dataset(config.Paths.DATASET_DIR, config.Paths.TRAINING_SET_FILE)
+        self.__verifier = FaceVerifier.create()
+        self.__dataset = Dataset(config.Paths.DATASET_DIR)
         self.__is_training = False
 
         view.bottom_text = LabelText.EMPTY_STATUS
@@ -64,10 +64,10 @@ class TrainingController(VideoController):
         self.__is_training = True
         self._view.bottom_text = LabelText.TRAINING
 
-        self.__recognizer.train(ground_truth, self.__samples,
-                                StaticFaceDetector(scale_factor=1), self.__dataset)
-        self.__recognizer.save(config.Paths.FACE_RECOGNITION_MODEL,
-                               config.Paths.FACE_RECOGNITION_MODEL_CONFIG)
+        self.__verifier.train(ground_truth, self.__samples,
+                              StaticFaceDetector(scale_factor=1), self.__dataset)
+        self.__verifier.save(config.Paths.VERIFICATION_MODEL,
+                             config.Paths.VERIFICATION_MODEL_CONFIG)
         self.__samples = []
 
         self._view.bottom_text = LabelText.EMPTY_STATUS

@@ -22,11 +22,11 @@ class Paths:
     FACE_LANDMARKS_SMALL_MODEL = path.join(RES_DIR, 'shape_predictor_5_face_landmarks.dat')
     CNN_FACE_DESCRIPTOR_MODEL = path.join(RES_DIR, 'dlib_face_recognition_resnet_model_v1.dat')
 
-    FACE_RECOGNITION_MODEL = path.join(USER_DIR, 'model.dat')
-    FACE_RECOGNITION_MODEL_CONFIG = path.join(USER_DIR, 'model_config.json')
+    VERIFICATION_MODEL_DIR = path.join(USER_DIR, 'verification')
+    VERIFICATION_MODEL = path.join(VERIFICATION_MODEL_DIR, 'model.dat')
+    VERIFICATION_MODEL_CONFIG = path.join(VERIFICATION_MODEL_DIR, 'model_config.json')
 
     DATASET_DIR = path.join(RES_DIR, 'lfw')
-    TRAINING_SET_FILE = path.join(RES_DIR, 'training_set.tsv')
 
 
 class Detector:
