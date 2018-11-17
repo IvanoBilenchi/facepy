@@ -7,8 +7,8 @@ from itertools import islice, tee
 from typing import Iterable, List, Optional
 
 from face_auth import config
-from . import fileutils, img
-from .dataset import Dataset, DataSample
+from . import dataset, fileutils, img
+from .dataset import DataSample
 from .detector import Face, StaticFaceDetector
 from .geometry import Landmarks, Point, Size
 from .process import Pipeline, Step
@@ -76,11 +76,15 @@ class FaceVerifier:
     def predict(self, sample: FaceSample) -> bool:
         return self.confidence_of_prediction(sample) < self.threshold
 
-    def train(self, ground_truth: FaceSample, samples: [FaceSample],
-              detector: StaticFaceDetector, dataset: Dataset) -> None:
+    def train(self, samples: [FaceSample], detector: StaticFaceDetector) -> None:
+        if len(samples) < 2:
+            raise ValueError('You need at least two samples to train a verifier.')
 
-        ground_truth = self.__extract_face(ground_truth, config.DEBUG)
-        positives = [self.__extract_face(s) for s in samples]
+        ground_truth = self.__extract_face(samples[-1], config.DEBUG)
+        positives = [self.__extract_face(s) for s in samples[:-1]]
+
+        if ground_truth is None or len(positives) == 0:
+            raise ValueError('Could not extract enough faces from the provided samples.')
 
         def preprocessor(sample: DataSample) -> Optional[DataSample]:
             image = self.__extract_frontal_face(sample.image, detector)
@@ -92,7 +96,7 @@ class FaceVerifier:
 
             return new_sample
 
-        negatives = dataset.negative_verification_images(sample_filter=preprocessor,
+        negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
                                                          max_samples=config.Recognizer.MAX_SAMPLES)
 
         n1, n2 = tee(negatives, 2)

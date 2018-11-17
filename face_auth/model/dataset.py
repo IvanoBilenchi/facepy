@@ -3,7 +3,9 @@ import numpy as np
 import os
 import sys
 from os import path
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable
+
+from face_auth import config
 
 
 class DataSample:
@@ -32,60 +34,55 @@ class DataSample:
         self.__image: np.array = None
 
 
-class Dataset:
+def samples_in_dir(dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
+    paths = [path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.jpg')]
+    paths.sort()
 
-    def __init__(self, data_dir: str) -> None:
-        self.data_dir = data_dir
+    for file_path in paths:
+        sample = DataSample(file_path)
 
-    def negative_verification_images(self, person_name: str = None,
-                                     sample_filter: Callable = None,
-                                     max_samples: int = sys.maxsize) -> Iterable[np.array]:
+        if sample_filter:
+            sample = sample_filter(sample)
 
-        skip_person: str = None
-        n_samples = 0
+        if sample:
+            yield sample
 
-        for sample in self.samples(sample_filter):
 
-            sample_name = sample.name
+def samples_for_person(person_name: str, sample_filter: Callable = None) -> Iterable[DataSample]:
+    person_dir = path.join(config.Paths.DATASET_DIR, person_name.replace(' ', '_'))
+    return samples_in_dir(person_dir, sample_filter=sample_filter)
 
-            if skip_person != sample_name:
-                skip_person = None
 
-            if sample_name == person_name or sample_name == skip_person:
-                continue
+def all_samples(sample_filter: Callable = None) -> Iterable[DataSample]:
+    data_dir = config.Paths.DATASET_DIR
+    dirs = [path.join(data_dir, d) for d in os.listdir(data_dir)]
+    dirs = [d for d in dirs if path.isdir(d)]
+    dirs.sort()
 
-            skip_person = sample_name
+    for dir_path in dirs:
+        for sample in samples_in_dir(dir_path, sample_filter=sample_filter):
+            yield sample
 
-            if n_samples < max_samples:
-                n_samples += 1
-                yield sample.image
-            else:
-                break
 
-    def samples_in_dir(self, dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
-        paths = [path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.jpg')]
-        paths.sort()
+def negative_verification_images(samples: Iterable[DataSample], person_name: str = None,
+                                 max_samples: int = sys.maxsize) -> Iterable[np.array]:
+    skip_person: str = None
+    n_samples = 0
 
-        for file_path in paths:
-            sample = DataSample(file_path)
+    for sample in samples:
 
-            if sample_filter:
-                sample = sample_filter(sample)
+        sample_name = sample.name
 
-            if sample:
-                yield sample
+        if skip_person != sample_name:
+            skip_person = None
 
-    def samples_for_person(self, person_name: str,
-                           sample_filter: Callable = None) -> Iterable[DataSample]:
-        person_dir = path.join(self.data_dir, person_name.replace(' ', '_'))
-        return self.samples_in_dir(person_dir, sample_filter=sample_filter)
+        if sample_name == person_name or sample_name == skip_person:
+            continue
 
-    def samples(self, sample_filter: Callable[[DataSample],
-                                              Optional[DataSample]] = None) -> Iterable[DataSample]:
-        dirs = [path.join(self.data_dir, d) for d in os.listdir(self.data_dir)]
-        dirs = [d for d in dirs if path.isdir(d)]
-        dirs.sort()
+        skip_person = sample_name
 
-        for dir_path in dirs:
-            for sample in self.samples_in_dir(dir_path, sample_filter=sample_filter):
-                yield sample
+        if n_samples < max_samples:
+            n_samples += 1
+            yield sample.image
+        else:
+            break

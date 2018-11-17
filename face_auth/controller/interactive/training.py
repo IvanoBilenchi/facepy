@@ -4,7 +4,6 @@ from typing import List
 
 from .video import VideoController
 from face_auth import config
-from face_auth.model.dataset import Dataset
 from face_auth.model.detector import StaticFaceDetector, VideoFaceDetector
 from face_auth.model.input import WebcamStream
 from face_auth.model.verification import FaceVerifier, FaceSample
@@ -30,7 +29,6 @@ class TrainVerifierVideoController(VideoController):
         self.__samples: List[FaceSample] = []
         self.__detector = VideoFaceDetector()
         self.__verifier = FaceVerifier.create()
-        self.__dataset = Dataset(config.Paths.DATASET_DIR)
         self.__is_training = False
 
         view.bottom_text = LabelText.EMPTY_STATUS
@@ -48,7 +46,7 @@ class TrainVerifierVideoController(VideoController):
             if key == VideoView.Key.SPACE:
                 self.__add_sample(FaceSample(frame, face))
             elif key == VideoView.Key.ENTER:
-                self.__train_async(FaceSample(frame, face))
+                self.__train_async()
 
             geometry_renderer.draw_landmarks(frame, face.landmarks)
 
@@ -58,14 +56,15 @@ class TrainVerifierVideoController(VideoController):
 
     def __add_sample(self, sample: FaceSample) -> None:
         self.__samples.append(sample)
-        self._view.bottom_text = LabelText.READY_STATUS
 
-    def __train(self, ground_truth: FaceSample) -> None:
+        if len(self.__samples) > 1:
+            self._view.bottom_text = LabelText.READY_STATUS
+
+    def __train(self) -> None:
         self.__is_training = True
         self._view.bottom_text = LabelText.TRAINING
 
-        self.__verifier.train(ground_truth, self.__samples,
-                              StaticFaceDetector(scale_factor=1), self.__dataset)
+        self.__verifier.train(self.__samples, StaticFaceDetector(scale_factor=1))
         self.__verifier.save(config.Paths.VERIFICATION_MODEL,
                              config.Paths.VERIFICATION_MODEL_CONFIG)
         self.__samples = []
@@ -74,10 +73,9 @@ class TrainVerifierVideoController(VideoController):
         self._view.temp_message(LabelText.DONE, 3)
         self.__is_training = False
 
-    def __train_async(self, ground_truth: FaceSample) -> None:
+    def __train_async(self) -> None:
         if len(self.__samples) > 0:
             self.__train_thread = Thread(name='Model training',
                                          target=self.__train,
-                                         args=[ground_truth],
                                          daemon=True)
             self.__train_thread.start()
