@@ -3,9 +3,7 @@ from threading import Thread
 from typing import List
 
 from .video import VideoController
-from face_auth import config
-from face_auth.model.detector import StaticFaceDetector, VideoFaceDetector
-from face_auth.model.input import WebcamStream
+from face_auth.model.detector import VideoFaceDetector
 from face_auth.model.verification import FaceVerifier, FaceSample
 from face_auth.view import geometry_renderer
 from face_auth.view.video import VideoView
@@ -23,15 +21,16 @@ class TrainVerifierVideoController(VideoController):
 
     # Public
 
-    def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
-        super(TrainVerifierVideoController, self).__init__(view, input_stream)
+    def __init__(self, algo: FaceVerifier.Algo, model_dir: str) -> None:
+        super(TrainVerifierVideoController, self).__init__()
+        self.__model_dir = model_dir
 
         self.__samples: List[FaceSample] = []
         self.__detector = VideoFaceDetector()
-        self.__verifier = FaceVerifier.create()
+        self.__verifier = FaceVerifier.create(algo)
         self.__is_training = False
 
-        view.bottom_text = LabelText.EMPTY_STATUS
+        self._view.bottom_text = LabelText.EMPTY_STATUS
 
     # Overrides
 
@@ -64,9 +63,8 @@ class TrainVerifierVideoController(VideoController):
         self.__is_training = True
         self._view.bottom_text = LabelText.TRAINING
 
-        self.__verifier.train(self.__samples, StaticFaceDetector(scale_factor=1))
-        self.__verifier.save(config.Paths.VERIFICATION_MODEL,
-                             config.Paths.VERIFICATION_MODEL_CONFIG)
+        self.__verifier.train(self.__samples)
+        self.__verifier.save(self.__model_dir)
         self.__samples = []
 
         self._view.bottom_text = LabelText.EMPTY_STATUS

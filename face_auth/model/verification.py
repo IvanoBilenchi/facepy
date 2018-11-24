@@ -1,9 +1,11 @@
 import cv2.cv2 as cv2
 import dlib
+import math
 import numpy as np
 import sys
 from enum import Enum
 from itertools import islice, tee
+from os import path
 from typing import Iterable, List, Optional
 
 from face_auth import config
@@ -33,12 +35,14 @@ class FaceVerifier:
     class ConfigKey:
         ALGO = 'algo'
         THRESH = 'thresh'
+        NAME = 'name'
+
+    class FileName:
+        MODEL = 'model.dat'
+        CONFIG = 'model_config.json'
 
     @classmethod
-    def create(cls, algo: Optional[Algo] = None) -> 'FaceVerifier':
-        if algo is None:
-            algo = FaceVerifier.Algo[config.Recognizer.ALGORITHM]
-
+    def create(cls, algo: Algo) -> 'FaceVerifier':
         if algo == FaceVerifier.Algo.EIGEN:
             return EigenVerifier()
         elif algo == FaceVerifier.Algo.FISHER:
@@ -51,20 +55,36 @@ class FaceVerifier:
             return CNNVerifier()
 
     @classmethod
-    def from_file(cls, model_path: str, config_path: str) -> 'FaceVerifier':
-        cfg = fileutils.load_json(config_path)
+    def from_dir(cls, dir_path: str) -> 'FaceVerifier':
+        model_path = path.join(dir_path, cls.FileName.MODEL)
+        config_path = path.join(dir_path, cls.FileName.CONFIG)
 
+        cfg = fileutils.load_json(config_path)
         algo = cls.Algo[cfg[cls.ConfigKey.ALGO]]
         verifier = cls.create(algo)
         verifier.threshold = float(cfg[cls.ConfigKey.THRESH])
+        verifier.person_name = str(cfg[cls.ConfigKey.NAME])
         verifier._load(model_path)
 
         return verifier
 
-    def __init__(self) -> None:
+    def __init__(self, person_name: str = None) -> None:
         self.threshold = 0.0
+        self.person_name = person_name
+        self._detector = StaticFaceDetector(scale_factor=1)
 
-    def confidence_of_prediction(self, sample: FaceSample) -> float:
+    def confidence(self, image: np.array) -> float:
+        face = self._detector.detect_main_face(image)
+
+        if not face:
+            return float('inf')
+
+        return self.confidence_for_sample(FaceSample(image, face))
+
+    def predict(self, image: np.array) -> bool:
+        return self.confidence(image) < self.threshold
+
+    def confidence_for_sample(self, sample: FaceSample) -> float:
         image = self.__extract_face(sample, config.DEBUG)
         confidence = self._predict(image)
 
@@ -73,21 +93,29 @@ class FaceVerifier:
                                                                              self.threshold))
         return confidence
 
-    def predict(self, sample: FaceSample) -> bool:
-        return self.confidence_of_prediction(sample) < self.threshold
+    def predict_sample(self, sample: FaceSample) -> bool:
+        return self.confidence_for_sample(sample) < self.threshold
 
-    def train(self, samples: [FaceSample], detector: StaticFaceDetector) -> None:
-        if len(samples) < 2:
+    def train(self, samples: [FaceSample]) -> None:
+        samples_count = len(samples)
+
+        if samples_count < 2:
             raise ValueError('You need at least two samples to train a verifier.')
 
-        ground_truth = self.__extract_face(samples[-1], config.DEBUG)
-        positives = [self.__extract_face(s) for s in samples[:-1]]
+        samples = [self.__extract_face(s, config.DEBUG) for s in samples]
+        samples_count = len(samples)
 
-        if ground_truth is None or len(positives) == 0:
+        if samples_count < 2:
             raise ValueError('Could not extract enough faces from the provided samples.')
 
+        truths_count = math.ceil(samples_count / 5)
+        positives_count = samples_count - truths_count
+
+        positives = samples[:positives_count]
+        truths = samples[-truths_count:]
+
         def preprocessor(sample: DataSample) -> Optional[DataSample]:
-            image = self.__extract_frontal_face(sample.image, detector)
+            image = self.__extract_frontal_face(sample.image)
             new_sample = None
 
             if image is not None:
@@ -102,13 +130,17 @@ class FaceVerifier:
         n1, n2 = tee(negatives, 2)
 
         self._train(positives, n1)
-        self.__learn_threshold(ground_truth, n2)
+        self.__learn_threshold(truths, n2)
 
-    def save(self, model_path: str, config_path: str) -> None:
-        fileutils.create_parent_dir(model_path)
+    def save(self, model_dir: str) -> None:
+        fileutils.create_dir(model_dir)
+        model_path = path.join(model_dir, self.FileName.MODEL)
+        config_path = path.join(model_dir, self.FileName.CONFIG)
+
         self._save(model_path)
 
         cfg = {
+            self.ConfigKey.NAME: self.person_name if self.person_name is not None else '',
             self.ConfigKey.ALGO: self.algo().name,
             self.ConfigKey.THRESH: '{:.5f}'.format(self.threshold)
         }
@@ -139,26 +171,31 @@ class FaceVerifier:
 
     # Private
 
-    def __learn_threshold(self, ground_truth: np.array, negatives: Iterable[np.array]) -> None:
-        min_confidence = sys.maxsize
-        ground_confidence = self._predict(ground_truth)
+    def __learn_threshold(self, truths: List[np.array], negatives: Iterable[np.array]) -> None:
+        avg_positive_confidence = 0
+
+        for image in truths:
+            avg_positive_confidence += self._predict(image)
+
+        avg_positive_confidence /= len(truths)
+
+        min_negative_confidence = sys.maxsize
 
         for image in negatives:
             confidence = self._predict(image)
 
-            if confidence < min_confidence:
-                min_confidence = confidence
+            if confidence < min_negative_confidence:
+                min_negative_confidence = confidence
 
-        self.threshold = (min_confidence + ground_confidence) / 2
+        self.threshold = (min_negative_confidence + avg_positive_confidence) / 2
 
         if config.DEBUG:
-            print('Ground confidence: {:.2f}'.format(ground_confidence))
-            print('Best confidence in training set: {:.2f}'.format(min_confidence))
+            print('Average positive confidence: {:.2f}'.format(avg_positive_confidence))
+            print('Minimum negative confidence: {:.2f}'.format(min_negative_confidence))
             print('Learned treshold: {:.2f}'.format(self.threshold))
 
-    def __extract_frontal_face(self, image: np.array, detector: StaticFaceDetector,
-                               debug: bool = False) -> Optional[np.array]:
-        face = detector.detect_main_face(image)
+    def __extract_frontal_face(self, image: np.array, debug: bool = False) -> Optional[np.array]:
+        face = self._detector.detect_main_face(image)
 
         if face is None or not face.landmarks.pose_is_frontal():
             return None
@@ -295,7 +332,7 @@ class EmbeddingsVerifier(FaceVerifier):
     def algo(self) -> FaceVerifier.Algo:
         raise NotImplementedError
 
-    def _compute_embedding(self, image: np.array) -> np.array:
+    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
         raise NotImplementedError
 
     # Overrides
@@ -321,7 +358,8 @@ class EmbeddingsVerifier(FaceVerifier):
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:
         del negative_samples  # Unused
-        self.__embeddings = [self._compute_embedding(i) for i in positive_samples]
+        embeddings = (self._compute_embedding(i) for i in positive_samples)
+        self.__embeddings = [e for e in embeddings if e is not None]
 
     def _load(self, model_path: str) -> None:
         json_array = fileutils.load_json(model_path)
@@ -340,17 +378,13 @@ class EmbeddingsVerifier(FaceVerifier):
 
 class EuclideanVerifier(EmbeddingsVerifier):
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.__detector = StaticFaceDetector(scale_factor=1)
-
     # Overrides
 
     def algo(self) -> FaceVerifier.Algo:
         return FaceVerifier.Algo.EUCLIDEAN
 
-    def _compute_embedding(self, image: np.array) -> np.array:
-        face = self.__detector.detect_main_face(image)
+    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
+        face = self._detector.detect_main_face(image)
 
         if face is None:
             return None
@@ -398,8 +432,14 @@ class CNNVerifier(EmbeddingsVerifier):
     def algo(self) -> FaceVerifier.Algo:
         return FaceVerifier.Algo.CNN
 
-    def _compute_embedding(self, image: np.array) -> np.array:
+    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        rect = self.__detector(image)[0].rect
-        landmarks = self.__predictor(image, rect)
-        return np.array(self.__net.compute_face_descriptor(image, landmarks))
+        detections = self.__detector(image)
+        embedding = None
+
+        if detections is not None and len(detections) > 0:
+            rect = detections[0].rect
+            landmarks = self.__predictor(image, rect)
+            embedding = np.array(self.__net.compute_face_descriptor(image, landmarks))
+
+        return embedding

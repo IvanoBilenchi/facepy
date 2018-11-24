@@ -3,10 +3,8 @@ from threading import Thread
 from time import sleep
 
 from .video import VideoController
-from face_auth import config
 from face_auth.model.detector import VideoFaceDetector
 from face_auth.model.geometry import Face
-from face_auth.model.input import WebcamStream
 from face_auth.model.verification import FaceVerifier, FaceSample
 from face_auth.view import color, geometry_renderer
 from face_auth.view.video import VideoView
@@ -23,18 +21,17 @@ class VerificationVideoController(VideoController):
 
     # Public
 
-    def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
-        super(VerificationVideoController, self).__init__(view, input_stream)
+    def __init__(self, model_dir: str) -> None:
+        super(VerificationVideoController, self).__init__()
         self.__detector = VideoFaceDetector()
-        self.__verifier = FaceVerifier.from_file(config.Paths.VERIFICATION_MODEL,
-                                                 config.Paths.VERIFICATION_MODEL_CONFIG)
+        self.__verifier = FaceVerifier.from_dir(model_dir)
 
         self.__sample: FaceSample = None
         self.__verified = False
         self.__start_verifying()
         self.__verification_thread: Thread = None
 
-        view.bottom_text = LabelText.READY_STATUS
+        self._view.bottom_text = LabelText.READY_STATUS
 
     # Overrides
 
@@ -68,7 +65,7 @@ class VerificationVideoController(VideoController):
 
         while True:
             if self.__sample:
-                self.__verified = self.__verifier.predict(self.__sample)
+                self.__verified = self.__verifier.predict_sample(self.__sample)
                 self.__sample = None
 
                 if self.__verified:

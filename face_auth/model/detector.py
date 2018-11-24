@@ -63,9 +63,7 @@ class StaticFaceDetector(FaceDetector):
         if main_face_rect is None:
             return None
 
-        face = Face(main_face_rect, self.detect_landmarks(frame, main_face_rect))
-
-        return face if face.landmarks.pose_is_valid() else None
+        return Face(main_face_rect, self.detect_landmarks(frame, main_face_rect))
 
 
 class VideoFaceDetector(FaceDetector):
@@ -93,15 +91,17 @@ class VideoFaceDetector(FaceDetector):
     def detect_main_face(self, frame: np.array) -> Optional[Face]:
         face = self.__detector.detect_main_face(frame)
 
-        if face is None:
+        if face and not face.landmarks.pose_is_valid():
+            face = None
+
+        if face:
+            self.__update_success_history(True)
+        else:
             self.__update_success_history(False)
             face = self.__last_detection_cache()
 
             if face is None:
                 return None
-
-        else:
-            self.__update_success_history(True)
 
         if self.__compute_success_rate() < 0.6:
             return None

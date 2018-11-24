@@ -9,9 +9,9 @@ class VideoController:
 
     # Public
 
-    def __init__(self, view: VideoView, input_stream: WebcamStream) -> None:
-        self._view = view
-        self._input_stream = input_stream
+    def __init__(self) -> None:
+        self._view = VideoView()
+        self._input_stream = WebcamStream()
 
     def __enter__(self):
         self._view.display()

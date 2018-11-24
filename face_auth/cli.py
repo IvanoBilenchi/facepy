@@ -1,9 +1,8 @@
 import argparse
 
 from . import config
-from .model.input import WebcamStream
 from .model.verification import FaceVerifier
-from .view.video import VideoView
+from .controller.batch import evaluation, training
 from .controller.interactive.verification import VerificationVideoController
 from .controller.interactive.training import TrainVerifierVideoController
 
@@ -13,19 +12,31 @@ from .controller.interactive.training import TrainVerifierVideoController
 
 def train_verifier_sub(args) -> int:
     """train-verifier subcommand."""
-    if args.algo:
-        config.Recognizer.ALGORITHM = args.algo
+    model_dir = config.Paths.VERIFICATION_MODEL_DIR
+    samples_dir = args.samples_dir
+    algo = args.algo
 
-    with TrainVerifierVideoController(view=VideoView(), input_stream=WebcamStream()) as controller:
-        controller.run_loop()
+    if samples_dir:
+        training.train_verifier(algo, samples_dir, model_dir)
+    else:
+        with TrainVerifierVideoController(algo, model_dir) as controller:
+            controller.run_loop()
+
     return 0
 
 
 def verify_sub(args) -> int:
     """verify subcommand."""
     del args  # Unused
-    with VerificationVideoController(view=VideoView(), input_stream=WebcamStream()) as controller:
+    with VerificationVideoController(config.Paths.VERIFICATION_MODEL_DIR) as controller:
         controller.run_loop()
+    return 0
+
+
+def evaluate_verifier_sub(args) -> int:
+    """evaluate-verifier subcommand."""
+    del args  # Unused
+    evaluation.evaluate_verifier(config.Paths.VERIFICATION_MODEL_DIR)
     return 0
 
 
@@ -90,9 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('Options')
     group.add_argument('-a', '--algo',
-                       help='Choose specific algorithm.',
+                       help='Use a specific algorithm.',
                        choices=[a.name for a in FaceVerifier.Algo],
                        default=config.Recognizer.ALGORITHM)
+    group.add_argument('-d', '--samples_dir',
+                       help='Trains a verifier with images from the specified dir.')
 
     parser.set_defaults(func=train_verifier_sub)
 
@@ -105,6 +118,16 @@ def build_parser() -> argparse.ArgumentParser:
                                    add_help=False)
 
     parser.set_defaults(func=verify_sub)
+
+    # evaluate-verifier subcommand
+    desc = 'Evaluate a trained verifier.'
+    parser = subparsers.add_parser('evaluate-verifier',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
+
+    parser.set_defaults(func=evaluate_verifier_sub)
 
     return main_parser
 

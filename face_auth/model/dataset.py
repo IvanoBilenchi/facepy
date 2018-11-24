@@ -11,9 +11,12 @@ from face_auth import config
 class DataSample:
 
     @property
-    def name(self) -> str:
-        components = path.basename(self.file_path).split('_')
-        return ' '.join(components[:-1])
+    def person_name(self) -> str:
+        return person_name_from_dir(self.dir_path)
+
+    @property
+    def file_name(self) -> str:
+        return path.basename(self.file_path)
 
     @property
     def dir_path(self) -> str:
@@ -32,6 +35,10 @@ class DataSample:
     def __init__(self, file_path: str) -> None:
         self.file_path = file_path
         self.__image: np.array = None
+
+
+def person_name_from_dir(dir_path: str) -> str:
+    return path.basename(dir_path).replace('_', ' ')
 
 
 def samples_in_dir(dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
@@ -71,7 +78,7 @@ def negative_verification_images(samples: Iterable[DataSample], person_name: str
 
     for sample in samples:
 
-        sample_name = sample.name
+        sample_name = sample.person_name
 
         if skip_person != sample_name:
             skip_person = None
