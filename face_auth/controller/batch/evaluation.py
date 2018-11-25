@@ -1,4 +1,7 @@
+import numpy as np
+from typing import List
 from face_auth.model import dataset
+from face_auth.model.classification import FaceClassifier
 from face_auth.model.verification import FaceVerifier
 
 
@@ -29,7 +32,6 @@ def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:
     else:
         f1 = round(2 * precision * recall / (precision + recall))
 
-    print('\nEvaluation completed!\n')
     print('Confusion matrix\n----------------')
     print('TP: {}\t\tFP: {}\nFN: {}\t\tTN: {}'.format(tp, fp, fn, tn))
     print('\nOther metrics\n-------------')
@@ -38,6 +40,38 @@ def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:
     print('Recall:     \t{:.2f}'.format(recall))
     print('Specificity:\t{:.2f}'.format(specificity))
     print('F1 score:   \t{:.2f}'.format(f1))
+
+
+def print_metrics_multiclass(cm: np.array, labels: List[str]) -> None:
+    n_classes = cm.shape[0]
+    n_predictions = np.sum(cm)
+
+    tp = np.diag(cm)
+    fp = np.sum(cm, axis=0) - tp
+    fn = np.sum(cm, axis=1) - tp
+    tn = np.repeat(n_predictions, n_classes) - (tp + fp + fn)
+
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    f1 = 2 * precision * recall / (precision + recall)
+
+    print('Confusion matrix\n----------------\n')
+    print(cm)
+    print_metric('Accuracy', accuracy, labels)
+    print_metric('Precision', precision, labels)
+    print_metric('Recall', recall, labels)
+    print_metric('Specificity', specificity, labels)
+    print_metric('F1 score', f1, labels)
+
+
+def print_metric(name: str, metric: np.array, labels: List[str]) -> None:
+    title = '{} (avg: {:.2f})'.format(name, np.average(metric))
+    print('\n{}\n{}'.format(title, '-' * len(title)))
+
+    for i, m in enumerate(metric):
+        print('  - {}: {:.2f}'.format(labels[i], m))
 
 
 def evaluate_verifier(model_dir: str) -> None:
@@ -50,19 +84,45 @@ def evaluate_verifier(model_dir: str) -> None:
     tn, fn, tp, fp = 0, 0, 0, 0
 
     for sample in dataset.all_samples():
-        result = verifier.predict(sample.image)
+        prediction = verifier.predict(sample.image)
 
         if verifier.person_name == sample.person_name:
-            if result:
+            if prediction:
                 tp += 1
             else:
                 fn += 1
         else:
-            if result:
+            if prediction:
                 fp += 1
             else:
                 tn += 1
 
-        print('{}: {}'.format(sample.file_name, 'verified' if result else 'not verified'))
+        print('{}: {}'.format(sample.file_name, 'verified' if prediction else 'not verified'))
 
+    print('\nEvaluation completed!\n')
     print_metrics(tp, tn, fp, fn)
+
+
+def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
+    classifier = FaceClassifier.from_dir(model_dir)
+
+    print('Evaluating classifier for: {}'.format(', '.join(classifier.labels)))
+    n_classes = len(classifier.labels)
+
+    cm = np.zeros((n_classes, n_classes), dtype=np.int)
+
+    for i, expected in enumerate(classifier.labels):
+        for n_sample, sample in enumerate(dataset.samples_for_person(expected)):
+            if n_sample < skip:
+                continue
+
+            predicted = classifier.predict(sample.image)
+
+            if predicted:
+                j = classifier.labels.index(predicted)
+                print('Expected: {} ({}) - Predicted: {} ({})'.format(expected, i,
+                                                                      predicted, j))
+                cm[i][j] += 1
+
+    print('\nEvaluation completed!\n')
+    print_metrics_multiclass(cm, classifier.labels)

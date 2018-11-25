@@ -24,6 +24,7 @@ class Paths:
 
     DATASET_DIR = path.join(RES_DIR, 'lfw')
     VERIFICATION_MODEL_DIR = path.join(USER_DIR, 'verification')
+    CLASSIFICATION_MODEL_DIR = path.join(USER_DIR, 'classification')
 
 
 class Detector:
@@ -36,7 +37,9 @@ class Detector:
 class Recognizer:
     """Recognizer config namespace."""
     ALGORITHM = 'CNN'
-    MAX_SAMPLES = 50
+    VERIFICATION_MAX_SAMPLES = 50
+    CLASSIFICATION_MIN_SAMPLES = 50
+    CLASSIFICATION_TRAINING_SAMPLES = 25
 
 
 class Renderer:

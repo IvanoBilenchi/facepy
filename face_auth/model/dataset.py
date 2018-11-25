@@ -41,6 +41,14 @@ def person_name_from_dir(dir_path: str) -> str:
     return path.basename(dir_path).replace('_', ' ')
 
 
+def all_dirs() -> Iterable[str]:
+    data_dir = config.Paths.DATASET_DIR
+    dirs = [path.join(data_dir, d) for d in os.listdir(data_dir)]
+    dirs = [d for d in dirs if path.isdir(d)]
+    dirs.sort()
+    return dirs
+
+
 def samples_in_dir(dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
     paths = [path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.jpg')]
     paths.sort()
@@ -61,12 +69,7 @@ def samples_for_person(person_name: str, sample_filter: Callable = None) -> Iter
 
 
 def all_samples(sample_filter: Callable = None) -> Iterable[DataSample]:
-    data_dir = config.Paths.DATASET_DIR
-    dirs = [path.join(data_dir, d) for d in os.listdir(data_dir)]
-    dirs = [d for d in dirs if path.isdir(d)]
-    dirs.sort()
-
-    for dir_path in dirs:
+    for dir_path in all_dirs():
         for sample in samples_in_dir(dir_path, sample_filter=sample_filter):
             yield sample
 

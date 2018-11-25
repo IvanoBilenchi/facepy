@@ -12,12 +12,31 @@ from .geometry import Face, Landmarks, Size, Rect
 # Public
 
 
+class FaceSample:
+    """Encapsulates a face image with geometry data."""
+
+    def __init__(self, image: np.array, face: Face) -> None:
+        self.image = image.copy()
+        self.face = face
+
+    def pose_is_frontal(self) -> bool:
+        return self.face.landmarks.pose_is_frontal()
+
+
 class FaceDetector:
 
     class Algo(Enum):
         HAAR = 0
         HOG = 1
         CNN = 2
+
+    # Public methods
+
+    def extract_main_face_sample(self, frame: np.array) -> Optional[FaceSample]:
+        face = self.detect_main_face(frame)
+        return FaceSample(frame, face) if face else None
+
+    # Must override
 
     def detect_faces(self, frame: np.array) -> List[Rect]:
         raise NotImplementedError

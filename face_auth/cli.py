@@ -1,7 +1,7 @@
 import argparse
 
 from . import config
-from .model.verification import FaceVerifier
+from .model.recognition_algo import RecognitionAlgo
 from .controller.batch import evaluation, training
 from .controller.interactive.verification import VerificationVideoController
 from .controller.interactive.training import TrainVerifierVideoController
@@ -14,7 +14,7 @@ def train_verifier_sub(args) -> int:
     """train-verifier subcommand."""
     model_dir = config.Paths.VERIFICATION_MODEL_DIR
     samples_dir = args.samples_dir
-    algo = args.algo
+    algo = RecognitionAlgo[args.algo]
 
     if samples_dir:
         training.train_verifier(algo, samples_dir, model_dir)
@@ -22,6 +22,17 @@ def train_verifier_sub(args) -> int:
         with TrainVerifierVideoController(algo, model_dir) as controller:
             controller.run_loop()
 
+    return 0
+
+
+def train_classifier_sub(args) -> int:
+    """train-classifier subcommand."""
+    model_dir = config.Paths.CLASSIFICATION_MODEL_DIR
+    algo = RecognitionAlgo[args.algo]
+
+    training.train_classifier(algo, model_dir,
+                              min_samples=args.min_samples,
+                              training_samples=args.training_samples)
     return 0
 
 
@@ -40,6 +51,12 @@ def evaluate_verifier_sub(args) -> int:
     return 0
 
 
+def evaluate_classifier_sub(args) -> int:
+    """evaluate-classifier subcommand."""
+    evaluation.evaluate_classifier(config.Paths.CLASSIFICATION_MODEL_DIR, skip=args.skip)
+    return 0
+
+
 # CLI parser
 
 
@@ -50,7 +67,7 @@ def process_args() -> int:
     if args.debug:
         config.DEBUG = True
 
-    if args.webcam:
+    if hasattr(args, 'webcam') and args.webcam is not None:
         config.WEBCAM = args.webcam
 
     if not hasattr(args, 'func'):
@@ -74,10 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Show this help message and exit.',
                        action='help')
 
-    # Config parser
-    config_parser = argparse.ArgumentParser(add_help=False)
+    # Webcam parser
+    webcam_parser = argparse.ArgumentParser(add_help=False)
 
-    group = config_parser.add_argument_group('Configuration')
+    group = webcam_parser.add_argument_group('Webcam configuration')
     group.add_argument('-w', '--webcam',
                        help='Select a specific webcam.',
                        type=unsigned_int,
@@ -96,25 +113,49 @@ def build_parser() -> argparse.ArgumentParser:
     parser = subparsers.add_parser('train-verifier',
                                    description=desc,
                                    help=desc,
-                                   parents=[config_parser, help_parser],
+                                   parents=[webcam_parser, help_parser],
                                    add_help=False)
 
     group = parser.add_argument_group('Options')
     group.add_argument('-a', '--algo',
                        help='Use a specific algorithm.',
-                       choices=[a.name for a in FaceVerifier.Algo],
+                       choices=[a.name for a in RecognitionAlgo],
                        default=config.Recognizer.ALGORITHM)
     group.add_argument('-d', '--samples_dir',
                        help='Trains a verifier with images from the specified dir.')
 
     parser.set_defaults(func=train_verifier_sub)
 
+    # train-classifier subcommand
+    desc = 'Train a face classifier.'
+    parser = subparsers.add_parser('train-classifier',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
+
+    group = parser.add_argument_group('Options')
+    group.add_argument('-a', '--algo',
+                       help='Use a specific algorithm.',
+                       choices=[a.name for a in RecognitionAlgo],
+                       default=config.Recognizer.ALGORITHM)
+    group.add_argument('-m', '--min-samples',
+                       help='Train classifier for people having at least as many samples.',
+                       type=unsigned_int,
+                       default=config.Recognizer.CLASSIFICATION_MIN_SAMPLES)
+    group.add_argument('-t', '--training-samples',
+                       help='Number of training samples per person.',
+                       type=unsigned_int,
+                       default=config.Recognizer.CLASSIFICATION_TRAINING_SAMPLES)
+
+    parser.set_defaults(func=train_classifier_sub)
+
     # verify subcommand
     desc = 'Use the trained model to verify the user.'
     parser = subparsers.add_parser('verify',
                                    description=desc,
                                    help=desc,
-                                   parents=[config_parser, help_parser],
+                                   parents=[webcam_parser, help_parser],
                                    add_help=False)
 
     parser.set_defaults(func=verify_sub)
@@ -128,6 +169,22 @@ def build_parser() -> argparse.ArgumentParser:
                                    add_help=False)
 
     parser.set_defaults(func=evaluate_verifier_sub)
+
+    # evaluate-classifier subcommand
+    desc = 'Evaluate a trained classifier.'
+    parser = subparsers.add_parser('evaluate-classifier',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
+
+    group = parser.add_argument_group('Options')
+    group.add_argument('-s', '--skip',
+                       help='Skip first samples for each class (account for training data).',
+                       type=unsigned_int,
+                       default=0)
+
+    parser.set_defaults(func=evaluate_classifier_sub)
 
     return main_parser
 

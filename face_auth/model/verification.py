@@ -3,7 +3,6 @@ import dlib
 import math
 import numpy as np
 import sys
-from enum import Enum
 from itertools import islice, tee
 from os import path
 from typing import Iterable, List, Optional
@@ -11,26 +10,13 @@ from typing import Iterable, List, Optional
 from face_auth import config
 from . import dataset, fileutils, img
 from .dataset import DataSample
-from .detector import Face, StaticFaceDetector
+from .detector import FaceSample, StaticFaceDetector
 from .geometry import Landmarks, Point, Size
 from .process import Pipeline, Step
-
-
-class FaceSample:
-
-    def __init__(self, image: np.array, face: Face) -> None:
-        self.image = image.copy()
-        self.face = face
+from .recognition_algo import RecognitionAlgo
 
 
 class FaceVerifier:
-
-    class Algo(Enum):
-        EIGEN = 0
-        FISHER = 1
-        LBPH = 2
-        EUCLIDEAN = 3
-        CNN = 4
 
     class ConfigKey:
         ALGO = 'algo'
@@ -42,14 +28,14 @@ class FaceVerifier:
         CONFIG = 'model_config.json'
 
     @classmethod
-    def create(cls, algo: Algo) -> 'FaceVerifier':
-        if algo == FaceVerifier.Algo.EIGEN:
+    def create(cls, algo: RecognitionAlgo) -> 'FaceVerifier':
+        if algo == RecognitionAlgo.EIGEN:
             return EigenVerifier()
-        elif algo == FaceVerifier.Algo.FISHER:
+        elif algo == RecognitionAlgo.FISHER:
             return FisherVerifier()
-        elif algo == FaceVerifier.Algo.LBPH:
+        elif algo == RecognitionAlgo.LBPH:
             return LBPHVerifier()
-        elif algo == FaceVerifier.Algo.EUCLIDEAN:
+        elif algo == RecognitionAlgo.EUCLIDEAN:
             return EuclideanVerifier()
         else:
             return CNNVerifier()
@@ -60,7 +46,7 @@ class FaceVerifier:
         config_path = path.join(dir_path, cls.FileName.CONFIG)
 
         cfg = fileutils.load_json(config_path)
-        algo = cls.Algo[cfg[cls.ConfigKey.ALGO]]
+        algo = RecognitionAlgo[cfg[cls.ConfigKey.ALGO]]
         verifier = cls.create(algo)
         verifier.threshold = float(cfg[cls.ConfigKey.THRESH])
         verifier.person_name = str(cfg[cls.ConfigKey.NAME])
@@ -74,12 +60,8 @@ class FaceVerifier:
         self._detector = StaticFaceDetector(scale_factor=1)
 
     def confidence(self, image: np.array) -> float:
-        face = self._detector.detect_main_face(image)
-
-        if not face:
-            return float('inf')
-
-        return self.confidence_for_sample(FaceSample(image, face))
+        sample = self._detector.extract_main_face_sample(image)
+        return self.confidence_for_sample(sample) if sample else float('inf')
 
     def predict(self, image: np.array) -> bool:
         return self.confidence(image) < self.threshold
@@ -125,7 +107,7 @@ class FaceVerifier:
             return new_sample
 
         negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
-                                                         max_samples=config.Recognizer.MAX_SAMPLES)
+                                                         max_samples=config.Recognizer.VERIFICATION_MAX_SAMPLES)
 
         n1, n2 = tee(negatives, 2)
 
@@ -150,7 +132,7 @@ class FaceVerifier:
 
     # Must override
 
-    def algo(self) -> Algo:
+    def algo(self) -> RecognitionAlgo:
         raise NotImplementedError
 
     def needs_preprocessing(self) -> bool:
@@ -195,12 +177,12 @@ class FaceVerifier:
             print('Learned treshold: {:.2f}'.format(self.threshold))
 
     def __extract_frontal_face(self, image: np.array, debug: bool = False) -> Optional[np.array]:
-        face = self._detector.detect_main_face(image)
+        sample = self._detector.extract_main_face_sample(image)
 
-        if face is None or not face.landmarks.pose_is_frontal():
+        if sample is None or not sample.pose_is_frontal():
             return None
 
-        return self.__extract_face(FaceSample(image, face), debug)
+        return self.__extract_face(sample, debug)
 
     def __extract_face(self, sample: FaceSample, debug: bool = False) -> np.array:
 
@@ -232,8 +214,8 @@ class EigenVerifier(FaceVerifier):
 
     # Overrides
 
-    def algo(self) -> FaceVerifier.Algo:
-        return FaceVerifier.Algo.EIGEN
+    def algo(self) -> RecognitionAlgo:
+        return RecognitionAlgo.EIGEN
 
     def _predict(self, image: np.array) -> float:
         label, confidence = self.__rec.predict(image)
@@ -263,8 +245,8 @@ class FisherVerifier(FaceVerifier):
 
     # Overrides
 
-    def algo(self) -> FaceVerifier.Algo:
-        return FaceVerifier.Algo.FISHER
+    def algo(self) -> RecognitionAlgo:
+        return RecognitionAlgo.FISHER
 
     def _predict(self, image: np.array) -> float:
         label, confidence = self.__rec.predict(image)
@@ -298,8 +280,8 @@ class LBPHVerifier(FaceVerifier):
 
     # Overrides
 
-    def algo(self) -> FaceVerifier.Algo:
-        return FaceVerifier.Algo.LBPH
+    def algo(self) -> RecognitionAlgo:
+        return RecognitionAlgo.LBPH
 
     def _predict(self, image: np.array) -> float:
         label, confidence = self.__rec.predict(image)
@@ -329,7 +311,7 @@ class EmbeddingsVerifier(FaceVerifier):
 
     # Must override
 
-    def algo(self) -> FaceVerifier.Algo:
+    def algo(self) -> RecognitionAlgo:
         raise NotImplementedError
 
     def _compute_embedding(self, image: np.array) -> Optional[np.array]:
@@ -380,8 +362,8 @@ class EuclideanVerifier(EmbeddingsVerifier):
 
     # Overrides
 
-    def algo(self) -> FaceVerifier.Algo:
-        return FaceVerifier.Algo.EUCLIDEAN
+    def algo(self) -> RecognitionAlgo:
+        return RecognitionAlgo.EUCLIDEAN
 
     def _compute_embedding(self, image: np.array) -> Optional[np.array]:
         face = self._detector.detect_main_face(image)
@@ -429,8 +411,8 @@ class CNNVerifier(EmbeddingsVerifier):
 
     # Overrides
 
-    def algo(self) -> FaceVerifier.Algo:
-        return FaceVerifier.Algo.CNN
+    def algo(self) -> RecognitionAlgo:
+        return RecognitionAlgo.CNN
 
     def _compute_embedding(self, image: np.array) -> Optional[np.array]:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
