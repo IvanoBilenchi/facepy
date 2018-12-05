@@ -12,6 +12,14 @@ from .geometry import Face, Landmarks, Size, Rect
 # Public
 
 
+class RawModel:
+    haar_detector = cv2.CascadeClassifier(config.Paths.HAAR_FACE_DETECTOR_MODEL)
+    hog_detector = dlib.get_frontal_face_detector()
+    cnn_detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
+    shape_predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_MODEL)
+    shape_predictor_small = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
+
+
 class FaceSample:
     """Encapsulates a face image with geometry data."""
 
@@ -72,7 +80,7 @@ class StaticFaceDetector(FaceDetector):
         return _detect_faces(frame, self.__scale_factor, detect_func)
 
     def detect_landmarks(self, frame: np.array, rect: Rect) -> Landmarks:
-        landmarks = _shape_predictor(frame, rect.to_dlib_rect())
+        landmarks = RawModel.shape_predictor(frame, rect.to_dlib_rect())
         return Landmarks.from_dlib_landmarks(landmarks)
 
     def detect_main_face(self, frame: np.array) -> Optional[Face]:
@@ -160,12 +168,6 @@ class VideoFaceDetector(FaceDetector):
 # Private
 
 
-_haar_detector = cv2.CascadeClassifier(config.Paths.HAAR_FACE_DETECTOR_MODEL)
-_hog_detector = dlib.get_frontal_face_detector()
-_cnn_detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
-_shape_predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_MODEL)
-
-
 def _detect_faces(frame: np.array, scale_factor: int,
                   func: Callable[[np.array], List[Rect]]) -> List[Rect]:
     if scale_factor <= 1:
@@ -177,14 +179,14 @@ def _detect_faces(frame: np.array, scale_factor: int,
 
 def _haar_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return [Rect(*f) for f in _haar_detector.detectMultiScale(temp_frame, 1.2, 5)]
+    return [Rect(*f) for f in RawModel.haar_detector.detectMultiScale(temp_frame, 1.2, 5)]
 
 
 def _hog_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return [Rect.from_dlib_rect(rect) for rect in _hog_detector(temp_frame)]
+    return [Rect.from_dlib_rect(rect) for rect in RawModel.hog_detector(temp_frame)]
 
 
 def _cnn_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return [Rect.from_dlib_rect(face.rect) for face in _cnn_detector(temp_frame)]
+    return [Rect.from_dlib_rect(face.rect) for face in RawModel.cnn_detector(temp_frame)]

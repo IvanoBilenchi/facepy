@@ -1,5 +1,4 @@
 import cv2.cv2 as cv2
-import dlib
 import math
 import numpy as np
 import sys
@@ -11,7 +10,8 @@ from face_auth import config
 from . import dataset, fileutils, img
 from .dataset import DataSample
 from .detector import FaceSample, StaticFaceDetector
-from .geometry import Landmarks, Point, Size
+from .feature_extractor import FeatureExtractor, EuclideanFeatureExtractor, CNNFeatureExtractor
+from .geometry import Size
 from .process import Pipeline, Step
 from .recognition_algo import RecognitionAlgo
 
@@ -27,18 +27,14 @@ class FaceVerifier:
         MODEL = 'model.dat'
         CONFIG = 'model_config.json'
 
+    # Public
+
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'FaceVerifier':
-        if algo == RecognitionAlgo.EIGEN:
-            return EigenVerifier()
-        elif algo == RecognitionAlgo.FISHER:
-            return FisherVerifier()
-        elif algo == RecognitionAlgo.LBPH:
-            return LBPHVerifier()
-        elif algo == RecognitionAlgo.EUCLIDEAN:
-            return EuclideanVerifier()
+        if algo in [RecognitionAlgo.EIGEN, RecognitionAlgo.FISHER, RecognitionAlgo.LBPH]:
+            return OpenCVVerifier.create(algo)
         else:
-            return CNNVerifier()
+            return FeaturesVerifier.create(algo)
 
     @classmethod
     def from_dir(cls, dir_path: str) -> 'FaceVerifier':
@@ -54,9 +50,9 @@ class FaceVerifier:
 
         return verifier
 
-    def __init__(self, person_name: str = None) -> None:
+    def __init__(self) -> None:
         self.threshold = 0.0
-        self.person_name = person_name
+        self.person_name = None
         self._detector = StaticFaceDetector(scale_factor=1)
 
     def confidence(self, image: np.array) -> float:
@@ -106,8 +102,9 @@ class FaceVerifier:
 
             return new_sample
 
+        max_samples = config.Recognizer.VERIFICATION_MAX_SAMPLES
         negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
-                                                         max_samples=config.Recognizer.VERIFICATION_MAX_SAMPLES)
+                                                         max_samples=max_samples)
 
         n1, n2 = tee(negatives, 2)
 
@@ -206,16 +203,29 @@ class FaceVerifier:
         return Pipeline.execute('Face extraction', sample.image, debug, steps)
 
 
-class EigenVerifier(FaceVerifier):
+class OpenCVVerifier(FaceVerifier):
 
-    def __init__(self) -> None:
+    # Public
+
+    @classmethod
+    def create(cls, algo: RecognitionAlgo) -> 'OpenCVVerifier':
+        if algo == RecognitionAlgo.EIGEN:
+            return OpenCVVerifier(algo, cv2.face.EigenFaceRecognizer_create)
+        elif algo == RecognitionAlgo.FISHER:
+            return OpenCVVerifier(algo, cv2.face.FisherFaceRecognizer_create)
+        else:
+            return OpenCVVerifier(algo, cv2.face.LBPHFaceRecognizer_create)
+
+    def __init__(self, algo: RecognitionAlgo, cv_rec_create):
         super().__init__()
-        self.__rec: cv2.face_EigenFaceRecognizer = None
+        self.__algo = algo
+        self.__create_rec = cv_rec_create
+        self.__rec: cv2.face_BasicFaceRecognizer = None
 
     # Overrides
 
     def algo(self) -> RecognitionAlgo:
-        return RecognitionAlgo.EIGEN
+        return self.__algo
 
     def _predict(self, image: np.array) -> float:
         label, confidence = self.__rec.predict(image)
@@ -223,37 +233,7 @@ class EigenVerifier(FaceVerifier):
 
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:
-        del negative_samples  # Unused
 
-        np_array = np.asarray(list(positive_samples))
-        self.__rec = cv2.face.EigenFaceRecognizer_create()
-        self.__rec.train(np_array, np.zeros(len(np_array), dtype=np.int))
-
-    def _load(self, model_path: str) -> None:
-        self.__rec = cv2.face.EigenFaceRecognizer_create()
-        self.__rec.read(model_path)
-
-    def _save(self, model_path: str) -> None:
-        self.__rec.save(model_path)
-
-
-class FisherVerifier(FaceVerifier):
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.__rec: cv2.face_FisherFaceRecognizer = None
-
-    # Overrides
-
-    def algo(self) -> RecognitionAlgo:
-        return RecognitionAlgo.FISHER
-
-    def _predict(self, image: np.array) -> float:
-        label, confidence = self.__rec.predict(image)
-        return confidence if label == 0 else float('inf')
-
-    def _train(self, positive_samples: Iterable[np.array],
-               negative_samples: Iterable[np.array]) -> None:
         positives = np.asarray(list(positive_samples), dtype=np.int)
         negatives = np.asarray(list(islice(negative_samples, len(positives))), dtype=np.int)
         labels = ([0] * len(positives)) + ([1] * len(negatives))
@@ -261,86 +241,54 @@ class FisherVerifier(FaceVerifier):
         samples = np.concatenate((positives, negatives))
         labels = np.asarray(labels, dtype=np.int)
 
-        self.__rec = cv2.face.FisherFaceRecognizer_create()
+        self.__rec = self.__create_rec()
         self.__rec.train(samples, labels)
 
     def _load(self, model_path: str) -> None:
-        self.__rec = cv2.face.FisherFaceRecognizer_create()
+        self.__rec = self.__create_rec()
         self.__rec.read(model_path)
 
     def _save(self, model_path: str) -> None:
         self.__rec.save(model_path)
 
 
-class LBPHVerifier(FaceVerifier):
+class FeaturesVerifier(FaceVerifier):
 
-    def __init__(self) -> None:
+    # Public
+
+    @classmethod
+    def create(cls, algo: RecognitionAlgo) -> 'FeaturesVerifier':
+        if algo == RecognitionAlgo.CNN:
+            return FeaturesVerifier(algo, CNNFeatureExtractor())
+        else:
+            return FeaturesVerifier(algo, EuclideanFeatureExtractor())
+
+    def __init__(self, algo: RecognitionAlgo, extractor: FeatureExtractor) -> None:
         super().__init__()
-        self.__rec: cv2.face_LBPHFaceRecognizer = None
-
-    # Overrides
-
-    def algo(self) -> RecognitionAlgo:
-        return RecognitionAlgo.LBPH
-
-    def _predict(self, image: np.array) -> float:
-        label, confidence = self.__rec.predict(image)
-        return confidence if label == 0 else float('inf')
-
-    def _train(self, positive_samples: Iterable[np.array],
-               negative_samples: Iterable[np.array]) -> None:
-        del negative_samples  # Unused
-
-        np_array = np.asarray(list(positive_samples))
-        self.__rec = cv2.face.LBPHFaceRecognizer_create()
-        self.__rec.train(np_array, np.zeros(len(np_array), dtype=np.int))
-
-    def _load(self, model_path: str) -> None:
-        self.__rec = cv2.face.LBPHFaceRecognizer_create()
-        self.__rec.read(model_path)
-
-    def _save(self, model_path: str) -> None:
-        self.__rec.save(model_path)
-
-
-class EmbeddingsVerifier(FaceVerifier):
-
-    def __init__(self) -> None:
-        super().__init__()
+        self.__algo = algo
+        self.__extractor = extractor
         self.__embeddings = []
 
-    # Must override
+    # Overrides
 
     def algo(self) -> RecognitionAlgo:
-        raise NotImplementedError
-
-    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
-        raise NotImplementedError
-
-    # Overrides
+        return self.__algo
 
     def needs_preprocessing(self) -> bool:
         return False
 
     def _predict(self, image: np.array) -> float:
-        sample = self._compute_embedding(image)
-
-        min_distance = float('inf')
+        sample = self.__extractor.extract_features(image)
 
         if sample is None:
-            return min_distance
+            return float('inf')
 
-        for embedding in self.__embeddings:
-            distance = self.__distance(embedding, sample)
-            if distance < min_distance:
-                min_distance = distance
-
-        return min_distance
+        return min(self.__embeddings, key=lambda x: FeatureExtractor.distance(x, sample))
 
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:
         del negative_samples  # Unused
-        embeddings = (self._compute_embedding(i) for i in positive_samples)
+        embeddings = (self.__extractor.extract_features(i) for i in positive_samples)
         self.__embeddings = [e for e in embeddings if e is not None]
 
     def _load(self, model_path: str) -> None:
@@ -351,77 +299,3 @@ class EmbeddingsVerifier(FaceVerifier):
     def _save(self, model_path: str) -> None:
         embeddings = [e.tolist() for e in self.__embeddings]
         fileutils.save_json(embeddings, model_path)
-
-    # Private
-
-    def __distance(self, embedding: np.array, other: np.array) -> float:
-        return np.linalg.norm(embedding - other)
-
-
-class EuclideanVerifier(EmbeddingsVerifier):
-
-    # Overrides
-
-    def algo(self) -> RecognitionAlgo:
-        return RecognitionAlgo.EUCLIDEAN
-
-    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
-        face = self._detector.detect_main_face(image)
-
-        if face is None:
-            return None
-
-        traits = self.__rec_traits(face.landmarks)
-        n_traits = len(traits)
-        norm_factor = face.landmarks.left_eye[0].distance(face.landmarks.right_eye[3])
-
-        embedding = np.zeros(self.__num_combinations_two(n_traits))
-        idx = 0
-
-        for i in range(n_traits - 1):
-            for j in range(i + 1, n_traits):
-                embedding[idx] = traits[i].distance(traits[j]) / norm_factor
-                idx += 1
-
-        return embedding
-
-    # Private
-
-    def __rec_traits(self, lm: Landmarks) -> List[Point]:
-        return [
-            lm.left_eye[0], lm.left_eye[3], lm.right_eye[0], lm.right_eye[3],
-            lm.nose_bridge[0], lm.nose_tip[2], lm.nose_tip[0], lm.nose_tip[-1],
-            lm.top_lip[0], lm.top_lip[2], lm.top_lip[4], lm.top_lip[6], lm.bottom_lip[3]
-        ]
-
-    def __num_combinations_two(self, count: int) -> int:
-        return count * (count - 1) // 2
-
-    def __distance(self, embedding: np.array, other: np.array) -> float:
-        return np.linalg.norm(embedding - other)
-
-
-class CNNVerifier(EmbeddingsVerifier):
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.__detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
-        self.__predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
-        self.__net = dlib.face_recognition_model_v1(config.Paths.CNN_FACE_DESCRIPTOR_MODEL)
-
-    # Overrides
-
-    def algo(self) -> RecognitionAlgo:
-        return RecognitionAlgo.CNN
-
-    def _compute_embedding(self, image: np.array) -> Optional[np.array]:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        detections = self.__detector(image)
-        embedding = None
-
-        if detections is not None and len(detections) > 0:
-            rect = detections[0].rect
-            landmarks = self.__predictor(image, rect)
-            embedding = np.array(self.__net.compute_face_descriptor(image, landmarks))
-
-        return embedding

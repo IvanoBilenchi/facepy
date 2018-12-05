@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from face_auth import config
 from . import fileutils, img
 from .detector import FaceSample, StaticFaceDetector
+from .feature_extractor import FeatureExtractor, EuclideanFeatureExtractor, CNNFeatureExtractor
 from .geometry import Size
 from .process import Pipeline, Step
 from .recognition_algo import RecognitionAlgo
@@ -24,13 +25,9 @@ class FaceClassifier:
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'FaceClassifier':
         if algo in [RecognitionAlgo.EIGEN, RecognitionAlgo.FISHER, RecognitionAlgo.LBPH]:
-            return OpenCVClassifier(algo)
-        elif algo == RecognitionAlgo.EUCLIDEAN:
-            # TODO: implement
-            return OpenCVClassifier(RecognitionAlgo.EIGEN)
+            return OpenCVClassifier.create(algo)
         else:
-            # TODO: implement
-            return OpenCVClassifier(RecognitionAlgo.EIGEN)
+            return FeaturesClassifier.create(algo)
 
     @classmethod
     def from_dir(cls, dir_path: str) -> 'FaceClassifier':
@@ -60,7 +57,7 @@ class FaceClassifier:
 
     def predict_sample(self, sample: FaceSample) -> str:
         image = self.__extract_face(sample, config.DEBUG)
-        return self._predict(image)
+        return self._labels[self._predict(image)]
 
     def train(self, data: Dict[str, List[FaceSample]]) -> None:
         processed_data: List[List[np.array]] = []
@@ -96,7 +93,7 @@ class FaceClassifier:
     def needs_preprocessing(self) -> bool:
         return True
 
-    def _predict(self, image: np.array) -> str:
+    def _predict(self, image: np.array) -> int:
         raise NotImplementedError
 
     def _train(self, data: List[List[np.array]]) -> None:
@@ -134,17 +131,19 @@ class FaceClassifier:
 
 class OpenCVClassifier(FaceClassifier):
 
-    def __init__(self, algo: RecognitionAlgo) -> None:
+    @classmethod
+    def create(cls, algo: RecognitionAlgo) -> 'OpenCVClassifier':
+        if algo == RecognitionAlgo.EIGEN:
+            return OpenCVClassifier(algo, cv2.face.EigenFaceRecognizer_create)
+        elif algo == RecognitionAlgo.FISHER:
+            return OpenCVClassifier(algo, cv2.face.FisherFaceRecognizer_create)
+        else:
+            return OpenCVClassifier(algo, cv2.face.LBPHFaceRecognizer_create)
+
+    def __init__(self, algo: RecognitionAlgo, cv_rec_create) -> None:
         super().__init__()
         self.__algo = algo
-
-        if algo == RecognitionAlgo.EIGEN:
-            self.__create_rec = cv2.face.EigenFaceRecognizer_create
-        elif algo == RecognitionAlgo.FISHER:
-            self.__create_rec = cv2.face.FisherFaceRecognizer_create
-        else:
-            self.__create_rec = cv2.face.LBPHFaceRecognizer_create
-
+        self.__create_rec = cv_rec_create
         self.__rec: cv2.face_BasicFaceRecognizer = None
 
     # Overrides
@@ -152,9 +151,8 @@ class OpenCVClassifier(FaceClassifier):
     def algo(self) -> RecognitionAlgo:
         return self.__algo
 
-    def _predict(self, image: np.array) -> str:
-        label, _ = self.__rec.predict(image)
-        return self._labels[label]
+    def _predict(self, image: np.array) -> int:
+        return self.__rec.predict(image)[0]
 
     def _train(self, data: List[List[np.array]]) -> None:
         img_array = np.asarray(_flatten_data(data))
@@ -168,6 +166,53 @@ class OpenCVClassifier(FaceClassifier):
 
     def _save(self, model_path: str) -> None:
         self.__rec.save(model_path)
+
+
+class FeaturesClassifier(FaceClassifier):
+
+    @classmethod
+    def create(cls, algo: RecognitionAlgo) -> 'FeaturesClassifier':
+        if algo == RecognitionAlgo.CNN:
+            return FeaturesClassifier(algo, CNNFeatureExtractor())
+        else:
+            return FeaturesClassifier(algo, EuclideanFeatureExtractor())
+
+    def __init__(self, algo: RecognitionAlgo, extractor: FeatureExtractor) -> None:
+        super().__init__()
+        self.__algo = algo
+        self.__extractor = extractor
+        self.__model: List[List[np.array]] = []
+
+    # Overrides
+
+    def algo(self) -> RecognitionAlgo:
+        return self.__algo
+
+    def needs_preprocessing(self) -> bool:
+        return False
+
+    def _predict(self, image: np.array) -> int:
+        embedding = self.__extractor.extract_features(image)
+
+        label = min((min(FeatureExtractor.distance(x, embedding) for x in e), i)
+                    for i, e in enumerate(self.__model))[1]
+
+        return label
+
+    def _train(self, data: List[List[np.array]]) -> None:
+        self.__model = [[self.__extractor.extract_features(x) for x in s] for s in data]
+
+    def _load(self, model_path: str) -> None:
+        json_array = fileutils.load_json(model_path)
+        if isinstance(json_array, list):
+            self.__model = [
+                [np.asarray(e) for e in x if isinstance(e, list)]
+                for x in json_array if isinstance(x, list)
+            ]
+
+    def _save(self, model_path: str) -> None:
+        model = [[x.tolist() for x in y] for y in self.__model]
+        fileutils.save_json(model, model_path)
 
 
 # Utils
