@@ -21,7 +21,7 @@ class FeatureExtractor:
         raise NotImplementedError
 
 
-class EuclideanFeatureExtractor(FeatureExtractor):
+class GeometricFeatureExtractor(FeatureExtractor):
 
     # Public
 

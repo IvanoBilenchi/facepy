@@ -10,7 +10,7 @@ from face_auth import config
 from . import dataset, fileutils, img
 from .dataset import DataSample
 from .detector import FaceSample, StaticFaceDetector
-from .feature_extractor import FeatureExtractor, EuclideanFeatureExtractor, CNNFeatureExtractor
+from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor
 from .geometry import Size
 from .process import Pipeline, Step
 from .recognition_algo import RecognitionAlgo
@@ -285,7 +285,7 @@ class FeaturesVerifier(FaceVerifier):
         if algo == RecognitionAlgo.CNN:
             return FeaturesVerifier(algo, CNNFeatureExtractor())
         else:
-            return FeaturesVerifier(algo, EuclideanFeatureExtractor())
+            return FeaturesVerifier(algo, GeometricFeatureExtractor())
 
     def __init__(self, algo: RecognitionAlgo, extractor: FeatureExtractor) -> None:
         super().__init__()
@@ -307,7 +307,7 @@ class FeaturesVerifier(FaceVerifier):
         if sample is None:
             return float('inf')
 
-        return min(self.__embeddings, key=lambda x: FeatureExtractor.distance(x, sample))
+        return min(FeatureExtractor.distance(x, sample) for x in self.__embeddings)
 
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:

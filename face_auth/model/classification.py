@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from face_auth import config
 from . import fileutils, img
 from .detector import FaceSample, StaticFaceDetector
-from .feature_extractor import FeatureExtractor, EuclideanFeatureExtractor, CNNFeatureExtractor
+from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor
 from .geometry import Size
 from .process import Pipeline, Step
 from .recognition_algo import RecognitionAlgo
@@ -175,7 +175,7 @@ class FeaturesClassifier(FaceClassifier):
         if algo == RecognitionAlgo.CNN:
             return FeaturesClassifier(algo, CNNFeatureExtractor())
         else:
-            return FeaturesClassifier(algo, EuclideanFeatureExtractor())
+            return FeaturesClassifier(algo, GeometricFeatureExtractor())
 
     def __init__(self, algo: RecognitionAlgo, extractor: FeatureExtractor) -> None:
         super().__init__()
