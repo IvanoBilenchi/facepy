@@ -49,5 +49,5 @@ class Pipeline:
 
     def __save(self, frame: np.array, n: int, step_name: str) -> None:
         file_name = '_'.join(self.name.split() + [str(n)] + step_name.split()) + '.png'
-        abs_path = path.join(Paths.USER_DIR, file_name.lower())
+        abs_path = path.join(Paths.DEBUG_DIR, file_name.lower())
         img.save(frame, abs_path)

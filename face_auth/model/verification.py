@@ -106,10 +106,13 @@ class FaceVerifier:
         negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
                                                          max_samples=max_samples)
 
-        n1, n2 = tee(negatives, 2)
-
-        self._train(positives, n1)
-        self.__learn_threshold(truths, n2)
+        if self.uses_negatives():
+            n1, n2 = tee(negatives, 2)
+            self._train(positives, n1)
+            self.__learn_threshold(truths, n2)
+        else:
+            self._train(positives, [])
+            self.__learn_threshold(truths, negatives)
 
     def save(self, model_dir: str) -> None:
         fileutils.create_dir(model_dir)
@@ -134,6 +137,9 @@ class FaceVerifier:
 
     def needs_preprocessing(self) -> bool:
         return True
+
+    def uses_negatives(self) -> bool:
+        return False
 
     def _predict(self, image: np.array) -> float:
         raise NotImplementedError
@@ -227,6 +233,9 @@ class OpenCVVerifier(FaceVerifier):
     def algo(self) -> RecognitionAlgo:
         return self.__algo
 
+    def uses_negatives(self) -> bool:
+        return self.algo() == RecognitionAlgo.FISHER
+
     def _predict(self, image: np.array) -> float:
         label, confidence = self.__rec.predict(image)
         return confidence if label == 0 else float('inf')
@@ -238,11 +247,12 @@ class OpenCVVerifier(FaceVerifier):
         negatives = np.asarray(list(islice(negative_samples, len(positives))), dtype=np.int)
         labels = ([0] * len(positives)) + ([1] * len(negatives))
 
-        samples = np.concatenate((positives, negatives))
+        samples = np.concatenate((positives, negatives)) if len(negatives) > 0 else positives
         labels = np.asarray(labels, dtype=np.int)
 
         self.__rec = self.__create_rec()
         self.__rec.train(samples, labels)
+        self.__print_debug_info(np.shape(positives[0]))
 
     def _load(self, model_path: str) -> None:
         self.__rec = self.__create_rec()
@@ -250,6 +260,20 @@ class OpenCVVerifier(FaceVerifier):
 
     def _save(self, model_path: str) -> None:
         self.__rec.save(model_path)
+
+    # Private
+
+    def __print_debug_info(self, sample_shape: np.array) -> None:
+        algo = self.algo()
+
+        if config.DEBUG and algo in [RecognitionAlgo.EIGEN, RecognitionAlgo.FISHER]:
+            color_map = cv2.COLORMAP_JET if algo == RecognitionAlgo.EIGEN else cv2.COLORMAP_BONE
+            eigenvectors = self.__rec.getEigenVectors()
+
+            for i in range(np.shape(eigenvectors)[1]):
+                image = img.normalized(np.reshape(eigenvectors[:, i], sample_shape))
+                image = cv2.applyColorMap(image, color_map)
+                img.save(image, config.Paths.DEBUG_DIR + '/ev{}.png'.format(i))
 
 
 class FeaturesVerifier(FaceVerifier):

@@ -1,6 +1,7 @@
 import argparse
 
 from . import config
+from .model import fileutils
 from .model.recognition_algo import RecognitionAlgo
 from .controller.batch import evaluation, training
 from .controller.interactive.verification import VerificationVideoController
@@ -66,6 +67,10 @@ def process_args() -> int:
 
     if args.debug:
         config.DEBUG = True
+
+    if config.DEBUG:
+        fileutils.delete_dir(config.Paths.DEBUG_DIR)
+        fileutils.create_dir(config.Paths.DEBUG_DIR)
 
     if hasattr(args, 'webcam') and args.webcam is not None:
         config.WEBCAM = args.webcam

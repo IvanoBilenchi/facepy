@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 
 
@@ -9,6 +10,10 @@ def create_dir(path: str) -> None:
 
 def create_parent_dir(path: str) -> None:
     create_dir(os.path.dirname(path))
+
+
+def delete_dir(path: str) -> None:
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def save_json(data, path: str) -> None:

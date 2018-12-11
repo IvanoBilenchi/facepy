@@ -15,6 +15,7 @@ class Paths:
     DIR = path.dirname(path.dirname(path.realpath(sys.argv[0])))
     RES_DIR = path.join(DIR, 'res')
     USER_DIR = path.join(DIR, 'user')
+    DEBUG_DIR = path.join(USER_DIR, 'debug')
 
     HAAR_FACE_DETECTOR_MODEL = path.join(cvdata.haarcascades, 'haarcascade_frontalface_default.xml')
     CNN_FACE_DETECTOR_MODEL = path.join(RES_DIR, 'mmod_human_face_detector.dat')
