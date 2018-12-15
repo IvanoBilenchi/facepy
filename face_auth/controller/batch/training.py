@@ -1,9 +1,6 @@
-from typing import Iterable
-
-from face_auth.model import dataset
+from face_auth.model import dataset, preprocess
 from face_auth.model.classification import FaceClassifier
-from face_auth.model.dataset import DataSample
-from face_auth.model.detector import FaceSample, StaticFaceDetector
+from face_auth.model.detector import StaticFaceDetector
 from face_auth.model.recognition_algo import RecognitionAlgo
 from face_auth.model.verification import FaceVerifier
 
@@ -13,7 +10,7 @@ def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str) -> F
 
     verifier = FaceVerifier.create(algo)
     verifier.person_name = dataset.person_name_from_dir(samples_dir)
-    samples = list(_data_to_face_samples(detector, dataset.samples_in_dir(samples_dir)))
+    samples = list(preprocess.data_to_face_samples(detector, dataset.samples_in_dir(samples_dir)))
 
     verifier.train(samples)
     verifier.save(model_dir)
@@ -35,7 +32,7 @@ def train_classifier(algo: RecognitionAlgo, model_dir: str,
         if len(data_samples) < min_samples:
             continue
 
-        samples = list(_data_to_face_samples(detector, data_samples))
+        samples = list(preprocess.data_to_face_samples(detector, data_samples))
 
         if len(samples) < min_samples:
             continue
@@ -50,14 +47,3 @@ def train_classifier(algo: RecognitionAlgo, model_dir: str,
     print('Successfully trained classifier!')
 
     return classifier
-
-
-# Utils
-
-
-def _data_to_face_samples(detector: StaticFaceDetector,
-                          samples: Iterable[DataSample]) -> Iterable[FaceSample]:
-    for sample in samples:
-        face_sample = detector.extract_main_face_sample(sample.image)
-        if face_sample:
-            yield face_sample

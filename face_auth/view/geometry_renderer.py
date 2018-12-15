@@ -10,7 +10,8 @@ def draw_rect(frame: np.array, rect: Rect) -> None:
                   Config.Rect.COLOR, Config.Rect.THICKNESS, Config.Rect.LINE_TYPE)
 
 
-def draw_landmarks(frame: np.array, landmarks: Landmarks, draw_bg=False, color=None) -> None:
+def draw_landmarks(frame: np.array, landmarks: Landmarks,
+                   points=False, draw_bg=False, color=None) -> None:
     lm = landmarks
     alpha = Config.Landmarks.ALPHA
 
@@ -36,15 +37,26 @@ def draw_landmarks(frame: np.array, landmarks: Landmarks, draw_bg=False, color=N
 
     overlay = frame.copy() if alpha < 1.0 else frame
 
-    cv2.polylines(overlay, Point.to_numpy(lm.chin), False, color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.left_eyebrow), False, color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.right_eyebrow), False, color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.left_eye), True, eye_color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.right_eye), True, eye_color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.nose_bridge), False, color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.nose_tip), False, color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.top_lip), True, mouth_color, thickness, line_type)
-    cv2.polylines(overlay, Point.to_numpy(lm.bottom_lip), True, mouth_color, thickness, line_type)
+    for pts in [lm.chin, lm.left_eyebrow, lm.right_eyebrow, lm.nose_bridge, lm.nose_tip]:
+        if points:
+            for point in pts:
+                cv2.circle(overlay, point, thickness, color, thickness, line_type)
+        else:
+            cv2.polylines(overlay, Point.to_numpy(pts), False, color, thickness, line_type)
+
+    for pts in [lm.left_eye, lm.right_eye]:
+        if points:
+            for point in pts:
+                cv2.circle(overlay, point, thickness, eye_color, thickness, line_type)
+        else:
+            cv2.polylines(overlay, Point.to_numpy(pts), True, eye_color, thickness, line_type)
+
+    for pts in [lm.top_lip, lm.bottom_lip]:
+        if points:
+            for point in pts:
+                cv2.circle(overlay, point, thickness, mouth_color, thickness, line_type)
+        else:
+            cv2.polylines(overlay, Point.to_numpy(pts), True, mouth_color, thickness, line_type)
 
     if alpha < 1.0:
         cv2.addWeighted(overlay, alpha, frame, 1.0 - alpha, 0.0, frame)

@@ -22,9 +22,10 @@ class TrainVerifierVideoController(VideoController):
 
     # Public
 
-    def __init__(self, algo: RecognitionAlgo, model_dir: str) -> None:
+    def __init__(self, algo: RecognitionAlgo, model_dir: str, draw_points=False) -> None:
         super(TrainVerifierVideoController, self).__init__()
         self.__model_dir = model_dir
+        self.__draw_points = draw_points
 
         self.__samples: List[FaceSample] = []
         self.__detector = VideoFaceDetector()
@@ -48,7 +49,7 @@ class TrainVerifierVideoController(VideoController):
             elif key == VideoView.Key.ENTER:
                 self.__train_async()
 
-            geometry_renderer.draw_landmarks(frame, face.landmarks)
+            geometry_renderer.draw_landmarks(frame, face.landmarks, points=self.__draw_points)
 
         return frame
 

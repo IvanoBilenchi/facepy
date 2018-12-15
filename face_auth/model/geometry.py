@@ -242,10 +242,10 @@ class Landmarks(NamedTuple):
         return Landmarks(*out)
 
     def pose_is_frontal(self) -> bool:
-        return self.__check_pose(1.2, -100, 0.2)
+        return self.__check_pose(1.2, -0.5, 0.2)
 
     def pose_is_valid(self) -> bool:
-        return self.__check_pose(1.0, -200, 0.6)
+        return self.__check_pose(1.0, -2.0, 0.6)
 
     def __check_pose(self, alpha: float, beta: float, gamma: float) -> bool:
         nose_tip_l, nose_tip_r = self.nose_tip[0], self.nose_tip[-1]
@@ -259,13 +259,14 @@ class Landmarks(NamedTuple):
         if nose_h / nose_w < alpha:
             return False
 
-        v1 = Point(nose_tip_r.x - nose_tip_l.x, nose_tip_r.y - nose_tip_l.y)
-        v2 = Point(nose_tip_r.x - nose_bridge_b.x, nose_tip_r.y - nose_bridge_b.y)
-
         # Discard faces tilted downwards.
         # Use cross product to detect if the lowest point of the nose bridge
         # crosses the line at the base of the nose tip.
-        if v1.x * v2.y - v1.y * v2.x < beta:
+        v1 = Point(nose_tip_r.x - nose_tip_l.x, nose_tip_r.y - nose_tip_l.y)
+        v2 = Point(nose_tip_r.x - nose_bridge_b.x, nose_tip_r.y - nose_bridge_b.y)
+        v1_len = math.sqrt(v1.x ** 2 + v1.y ** 2)
+
+        if (v1.x * v2.y - v1.y * v2.x) / v1_len < beta:
             return False
 
         l_eye, r_eye = self.left_eye[3], self.right_eye[0]

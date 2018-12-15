@@ -1,7 +1,8 @@
 import numpy as np
 from typing import List
-from face_auth.model import dataset
+from face_auth.model import dataset, preprocess
 from face_auth.model.classification import FaceClassifier
+from face_auth.model.detector import StaticFaceDetector
 from face_auth.model.verification import FaceVerifier
 
 
@@ -76,6 +77,7 @@ def print_metric(name: str, metric: np.array, labels: List[str]) -> None:
 
 def evaluate_verifier(model_dir: str) -> None:
     verifier = FaceVerifier.from_dir(model_dir)
+    detector = StaticFaceDetector(scale_factor=1)
 
     prompt = 'Evaluating verifier for {}'.format(verifier.person_name)
     print(prompt)
@@ -84,7 +86,12 @@ def evaluate_verifier(model_dir: str) -> None:
     tn, fn, tp, fp = 0, 0, 0, 0
 
     for sample in dataset.all_samples():
-        prediction = verifier.predict(sample.image)
+        face_sample = preprocess.data_to_face_sample(detector, sample)
+
+        if not face_sample:
+            continue
+
+        prediction = verifier.predict(face_sample.image)
 
         if verifier.person_name == sample.person_name:
             if prediction:
@@ -105,6 +112,7 @@ def evaluate_verifier(model_dir: str) -> None:
 
 def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
     classifier = FaceClassifier.from_dir(model_dir)
+    detector = StaticFaceDetector(scale_factor=1)
 
     print('Evaluating classifier for: {}'.format(', '.join(classifier.labels)))
     n_classes = len(classifier.labels)
@@ -112,7 +120,9 @@ def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
     cm = np.zeros((n_classes, n_classes), dtype=np.int)
 
     for i, expected in enumerate(classifier.labels):
-        for n_sample, sample in enumerate(dataset.samples_for_person(expected)):
+        samples = preprocess.data_to_face_samples(detector, dataset.samples_for_person(expected))
+
+        for n_sample, sample in enumerate(samples):
             if n_sample < skip:
                 continue
 

@@ -4,11 +4,9 @@ from os import path
 from typing import Any, Dict, List, Optional
 
 from face_auth import config
-from . import fileutils, img
+from . import fileutils, preprocess
 from .detector import FaceSample, StaticFaceDetector
 from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor
-from .geometry import Size
-from .process import Pipeline, Step
 from .recognition_algo import RecognitionAlgo
 
 
@@ -56,7 +54,9 @@ class FaceClassifier:
         return self.predict_sample(FaceSample(image, face)) if face else None
 
     def predict_sample(self, sample: FaceSample) -> str:
-        image = self.__extract_face(sample, config.DEBUG)
+        image = preprocess.extract_face(sample,
+                                        preprocess=self.needs_preprocessing(),
+                                        debug=config.DEBUG)
         return self._labels[self._predict(image)]
 
     def train(self, data: Dict[str, List[FaceSample]]) -> None:
@@ -64,7 +64,13 @@ class FaceClassifier:
         self._labels = []
 
         for name, samples in data.items():
-            samples = [self.__extract_face(s, config.DEBUG) for s in samples]
+            samples = [
+                preprocess.extract_face(sample,
+                                        preprocess=self.needs_preprocessing(),
+                                        debug=config.DEBUG)
+                for sample in samples
+            ]
+
             processed_data.append(samples)
             self._labels.append(name)
 
@@ -104,29 +110,6 @@ class FaceClassifier:
 
     def _save(self, model_path: str) -> None:
         raise NotImplementedError
-
-    # Private
-
-    def __extract_face(self, sample: FaceSample, debug: bool = False) -> np.array:
-
-        if self.needs_preprocessing():
-            rect = sample.face.landmarks.square()
-            shape = sample.face.landmarks.thin_shape
-            matrix = sample.face.landmarks.alignment_matrix()
-
-            steps = [
-                Step('To grayscale', img.to_grayscale),
-                Step('Mask', lambda f: img.masked_to_shape(f, shape)),
-                Step('Align', lambda f: img.transform(f, matrix, rect.size)),
-                Step('Resize', lambda f: img.resized(f, Size(100, 100))),
-                Step('Denoise', img.denoised),
-                Step('Equalize', img.equalized),
-                Step('Normalize', img.normalized)
-            ]
-        else:
-            steps = [Step('Resize', lambda f: img.resized(f, Size(250, 250)))]
-
-        return Pipeline.execute('Face extraction', sample.image, debug, steps)
 
 
 class OpenCVClassifier(FaceClassifier):

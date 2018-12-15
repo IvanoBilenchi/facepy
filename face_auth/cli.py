@@ -20,7 +20,7 @@ def train_verifier_sub(args) -> int:
     if samples_dir:
         training.train_verifier(algo, samples_dir, model_dir)
     else:
-        with TrainVerifierVideoController(algo, model_dir) as controller:
+        with TrainVerifierVideoController(algo, model_dir, draw_points=args.points) as controller:
             controller.run_loop()
 
     return 0
@@ -128,6 +128,9 @@ def build_parser() -> argparse.ArgumentParser:
                        default=config.Recognizer.ALGORITHM)
     group.add_argument('-d', '--samples_dir',
                        help='Trains a verifier with images from the specified dir.')
+    group.add_argument('-p', '--points',
+                       help='Show points instead of lines for facial landmarks.',
+                       action='store_true')
 
     parser.set_defaults(func=train_verifier_sub)
 
