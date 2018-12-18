@@ -1,11 +1,14 @@
 import cv2.cv2 as cv2
 import dlib
 import numpy as np
+import os
 from typing import List, Optional
 
+from . import img
 from .detector import RawModel, StaticFaceDetector
 from .geometry import Landmarks, Point
 from face_auth import config
+from face_auth.view import geometry_renderer
 
 
 class FeatureExtractor:
@@ -35,6 +38,12 @@ class GeometricFeatureExtractor(FeatureExtractor):
             return None
 
         traits = self.__rec_traits(face.landmarks)
+
+        if config.DEBUG:
+            new_image = image.copy()
+            geometry_renderer.draw_points(new_image, traits)
+            img.save(new_image, os.path.join(config.Paths.DEBUG_DIR, 'features.png'))
+
         n_traits = len(traits)
         norm_factor = face.landmarks.left_eye[0].distance(face.landmarks.right_eye[3])
 

@@ -31,7 +31,7 @@ def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:
     if precision == 0.0 and recall == 0.0:
         f1 = float('nan')
     else:
-        f1 = round(2 * precision * recall / (precision + recall))
+        f1 = 2 * precision * recall / (precision + recall)
 
     print('Confusion matrix\n----------------')
     print('TP: {}\t\tFP: {}\nFN: {}\t\tTN: {}'.format(tp, fp, fn, tn))
@@ -52,30 +52,42 @@ def print_metrics_multiclass(cm: np.array, labels: List[str]) -> None:
     fn = np.sum(cm, axis=1) - tp
     tn = np.repeat(n_predictions, n_classes) - (tp + fp + fn)
 
-    accuracy = (tp + tn) / (tp + tn + fp + fn)
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    specificity = tn / (tn + fp)
+    tp_plus_tn = tp + tn
+    tp_plus_fp = tp + fp
+    tp_plus_fn = tp + fn
+    tn_plus_fp = tn + fp
+    all_predictions = tp + tn + fp + fn
+
+    accuracy = np.divide(tp_plus_tn, all_predictions,
+                         out=np.zeros_like(tp_plus_tn), where=all_predictions != 0)
+    precision = np.divide(tp, tp_plus_fp,
+                          out=np.zeros_like(tp), where=tp_plus_fp != 0)
+    recall = np.divide(tp, tp_plus_fn,
+                       out=np.zeros_like(tp), where=tp_plus_fn != 0)
+    specificity = np.divide(tn, tn_plus_fp,
+                            out=np.zeros_like(tn), where=tn_plus_fp != 0)
+
     f1 = 2 * precision * recall / (precision + recall)
 
     print('Confusion matrix\n----------------\n')
     print(cm)
-    print_metric('Accuracy', accuracy, labels)
-    print_metric('Precision', precision, labels)
-    print_metric('Recall', recall, labels)
-    print_metric('Specificity', specificity, labels)
-    print_metric('F1 score', f1, labels)
+    print_metric('Accuracy', accuracy, labels, tp_plus_fn)
+    print_metric('Precision', precision, labels, tp_plus_fn)
+    print_metric('Recall', recall, labels, tp_plus_fn)
+    print_metric('Specificity', specificity, labels, tp_plus_fn)
+    print_metric('F1 score', f1, labels, tp_plus_fn)
 
 
-def print_metric(name: str, metric: np.array, labels: List[str]) -> None:
-    title = '{} (avg: {:.2f})'.format(name, np.average(metric))
+def print_metric(name: str, metric: np.array, labels: List[str], predictions: np.array) -> None:
+    title = '{} (avg: {:.2f}, w_avg: {:.2f})'.format(name, np.average(metric),
+                                                     np.average(metric, weights=predictions))
     print('\n{}\n{}'.format(title, '-' * len(title)))
 
     for i, m in enumerate(metric):
         print('  - {}: {:.2f}'.format(labels[i], m))
 
 
-def evaluate_verifier(model_dir: str) -> None:
+def evaluate_verifier(model_dir: str, skip: int = 0) -> None:
     verifier = FaceVerifier.from_dir(model_dir)
     detector = StaticFaceDetector(scale_factor=1)
 
@@ -84,11 +96,15 @@ def evaluate_verifier(model_dir: str) -> None:
     print('-' * len(prompt))
 
     tn, fn, tp, fp = 0, 0, 0, 0
+    skipped = 0
 
     for sample in dataset.all_samples():
         face_sample = preprocess.data_to_face_sample(detector, sample)
 
         if not face_sample:
+            continue
+        elif verifier.person_name == sample.person_name and skipped < skip:
+            skipped += 1
             continue
 
         prediction = verifier.predict(face_sample.image)
@@ -117,7 +133,7 @@ def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
     print('Evaluating classifier for: {}'.format(', '.join(classifier.labels)))
     n_classes = len(classifier.labels)
 
-    cm = np.zeros((n_classes, n_classes), dtype=np.int)
+    cm = np.zeros((n_classes, n_classes), dtype=np.float)
 
     for i, expected in enumerate(classifier.labels):
         samples = preprocess.data_to_face_samples(detector, dataset.samples_for_person(expected))
@@ -132,7 +148,7 @@ def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
                 j = classifier.labels.index(predicted)
                 print('Expected: {} ({}) - Predicted: {} ({})'.format(expected, i,
                                                                       predicted, j))
-                cm[i][j] += 1
+                cm[i][j] += 1.0
 
     print('\nEvaluation completed!\n')
     print_metrics_multiclass(cm, classifier.labels)

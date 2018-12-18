@@ -5,12 +5,16 @@ from face_auth.model.recognition_algo import RecognitionAlgo
 from face_auth.model.verification import FaceVerifier
 
 
-def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str) -> FaceVerifier:
+def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str,
+                   max_samples: int = 10) -> FaceVerifier:
     detector = StaticFaceDetector(scale_factor=1)
 
     verifier = FaceVerifier.create(algo)
     verifier.person_name = dataset.person_name_from_dir(samples_dir)
     samples = list(preprocess.data_to_face_samples(detector, dataset.samples_in_dir(samples_dir)))
+
+    if len(samples) > max_samples:
+        samples = samples[:max_samples]
 
     verifier.train(samples)
     verifier.save(model_dir)

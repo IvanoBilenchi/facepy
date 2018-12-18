@@ -18,7 +18,7 @@ def train_verifier_sub(args) -> int:
     algo = RecognitionAlgo[args.algo]
 
     if samples_dir:
-        training.train_verifier(algo, samples_dir, model_dir)
+        training.train_verifier(algo, samples_dir, model_dir, max_samples=args.max_samples)
     else:
         with TrainVerifierVideoController(algo, model_dir, draw_points=args.points) as controller:
             controller.run_loop()
@@ -47,8 +47,7 @@ def verify_sub(args) -> int:
 
 def evaluate_verifier_sub(args) -> int:
     """evaluate-verifier subcommand."""
-    del args  # Unused
-    evaluation.evaluate_verifier(config.Paths.VERIFICATION_MODEL_DIR)
+    evaluation.evaluate_verifier(config.Paths.VERIFICATION_MODEL_DIR, skip=args.skip)
     return 0
 
 
@@ -126,13 +125,18 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Use a specific algorithm.',
                        choices=[a.name for a in RecognitionAlgo],
                        default=config.Recognizer.ALGORITHM)
-    group.add_argument('-d', '--samples_dir',
-                       help='Trains a verifier with images from the specified dir.')
     group.add_argument('-p', '--points',
                        help='Show points instead of lines for facial landmarks.',
                        action='store_true')
 
+    group = parser.add_argument_group('Batch options')
     parser.set_defaults(func=train_verifier_sub)
+    group.add_argument('-d', '--samples_dir',
+                       help='Trains a verifier with images from the specified dir.')
+    group.add_argument('-m', '--max-samples',
+                       help='Maximum number of training samples.',
+                       type=unsigned_int,
+                       default=config.Recognizer.VERIFICATION_POSITIVE_TRAINING_SAMPLES)
 
     # train-classifier subcommand
     desc = 'Train a face classifier.'
@@ -175,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
                                    help=desc,
                                    parents=[help_parser],
                                    add_help=False)
+
+    group = parser.add_argument_group('Options')
+    group.add_argument('-s', '--skip',
+                       help='Skip first samples for individual (account for training data).',
+                       type=unsigned_int,
+                       default=0)
 
     parser.set_defaults(func=evaluate_verifier_sub)
 

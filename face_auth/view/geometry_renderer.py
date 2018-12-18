@@ -1,8 +1,16 @@
 import cv2.cv2 as cv2
 import numpy as np
+from typing import Iterable
 
 from face_auth.config import Renderer as Config
 from face_auth.model.geometry import Landmarks, Point, Rect
+
+
+def draw_points(frame: np.array, points: Iterable[Point]) -> None:
+    thickness = Config.Landmarks.THICKNESS
+    color = Config.Landmarks.BASE_COLOR
+    for pt in points:
+        cv2.circle(frame, pt, thickness, color, thickness)
 
 
 def draw_rect(frame: np.array, rect: Rect) -> None:

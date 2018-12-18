@@ -92,7 +92,9 @@ class FaceVerifier:
         if samples_count < 2:
             raise ValueError('Could not extract enough faces from the provided samples.')
 
-        truths_count = math.ceil(samples_count / 5)
+        split_ratio = config.Recognizer.VERIFICATION_POSITIVE_TRAINING_SAMPLES_SPLIT
+
+        truths_count = math.ceil(samples_count * split_ratio)
         positives_count = samples_count - truths_count
 
         positives = samples[:positives_count]
@@ -109,7 +111,7 @@ class FaceVerifier:
 
             return new_sample
 
-        max_samples = config.Recognizer.VERIFICATION_MAX_SAMPLES
+        max_samples = config.Recognizer.VERIFICATION_NEGATIVE_TRAINING_SAMPLES
         negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
                                                          max_samples=max_samples)
 
