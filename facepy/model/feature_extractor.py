@@ -7,8 +7,8 @@ from typing import List, Optional
 from . import img
 from .detector import RawModel, StaticFaceDetector
 from .geometry import Landmarks, Point
-from face_auth import config
-from face_auth.view import geometry_renderer
+from facepy import config
+from facepy.view import geometry_renderer
 
 
 class FeatureExtractor:

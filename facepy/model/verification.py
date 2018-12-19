@@ -6,7 +6,7 @@ from itertools import islice, tee
 from os import path
 from typing import Iterable, List, Optional
 
-from face_auth import config
+from facepy import config
 from . import dataset, fileutils, img, preprocess
 from .dataset import DataSample
 from .detector import FaceSample, StaticFaceDetector

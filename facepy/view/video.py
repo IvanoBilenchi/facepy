@@ -2,13 +2,13 @@ import cv2.cv2 as cv2
 import numpy as np
 from enum import Enum
 
-import face_auth.config as config
-from face_auth.model import img
-from face_auth.model.fps_estimator import FPSEstimator
-from face_auth.model.geometry import Size
+import facepy.config as config
 from . import color
 from .fps_renderer import FPSRenderer
 from .label_renderer import LabelPosition, LabelRenderer
+from facepy.model import img
+from facepy.model.fps_estimator import FPSEstimator
+from facepy.model.geometry import Size
 
 
 class VideoView:

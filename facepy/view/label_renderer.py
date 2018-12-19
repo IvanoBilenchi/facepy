@@ -3,8 +3,8 @@ import numpy as np
 from enum import Enum
 from time import perf_counter_ns
 
-from face_auth.config import Renderer
-from face_auth.model.geometry import Size
+from facepy.config import Renderer
+from facepy.model.geometry import Size
 
 Config = Renderer.Label
 

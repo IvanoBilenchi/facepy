@@ -4,7 +4,7 @@ from time import perf_counter_ns
 from typing import Callable, List, NamedTuple, Optional
 
 from . import img
-from face_auth.config import Paths
+from facepy.config import Paths
 
 
 class Step(NamedTuple):

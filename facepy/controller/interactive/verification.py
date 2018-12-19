@@ -3,11 +3,11 @@ from threading import Thread
 from time import sleep
 
 from .video import VideoController
-from face_auth.model.detector import VideoFaceDetector
-from face_auth.model.geometry import Face
-from face_auth.model.verification import FaceVerifier, FaceSample
-from face_auth.view import color, geometry_renderer
-from face_auth.view.video import VideoView
+from facepy.model.detector import VideoFaceDetector
+from facepy.model.geometry import Face
+from facepy.model.verification import FaceVerifier, FaceSample
+from facepy.view import color, geometry_renderer
+from facepy.view.video import VideoView
 
 
 class LabelText:

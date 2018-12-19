@@ -1,9 +1,10 @@
 import numpy as np
 from typing import List
-from face_auth.model import dataset, preprocess
-from face_auth.model.classification import FaceClassifier
-from face_auth.model.detector import StaticFaceDetector
-from face_auth.model.verification import FaceVerifier
+
+from facepy.model import dataset, preprocess
+from facepy.model.classification import FaceClassifier
+from facepy.model.detector import StaticFaceDetector
+from facepy.model.verification import FaceVerifier
 
 
 def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:

@@ -75,8 +75,8 @@ def process_args() -> int:
         config.WEBCAM = args.webcam
 
     if not hasattr(args, 'func'):
-        raise ValueError(('Invalid argument(s). Please run "face_auth -h" or '
-                          '"face_auth <subcommand> -h" for help.'))
+        raise ValueError(('Invalid argument(s). Please run "facepy -h" or '
+                          '"facepy <subcommand> -h" for help.'))
 
     return args.func(args)
 
@@ -105,7 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
                        default=config.WEBCAM)
 
     # Main parser
-    main_parser = argparse.ArgumentParser(prog='face_auth',
+    main_parser = argparse.ArgumentParser(prog='facepy',
                                           description='Facial recognition framework.',
                                           parents=[help_parser],
                                           add_help=False)

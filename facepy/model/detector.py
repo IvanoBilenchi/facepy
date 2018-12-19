@@ -5,7 +5,7 @@ import numpy as np
 from enum import Enum
 from typing import Callable, List, Optional
 
-from face_auth import config
+from facepy import config
 from .geometry import Face, Landmarks, Size, Rect
 
 

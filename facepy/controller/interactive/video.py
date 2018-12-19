@@ -1,8 +1,8 @@
 import numpy as np
 
-from face_auth.model import img
-from face_auth.model.input import WebcamStream
-from face_auth.view.video import VideoView
+from facepy.model import img
+from facepy.model.input import WebcamStream
+from facepy.view.video import VideoView
 
 
 class VideoController:

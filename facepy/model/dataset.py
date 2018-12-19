@@ -5,7 +5,7 @@ import sys
 from os import path
 from typing import Callable, Iterable
 
-from face_auth import config
+from facepy import config
 
 
 class DataSample:

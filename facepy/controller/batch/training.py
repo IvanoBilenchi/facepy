@@ -1,8 +1,8 @@
-from face_auth.model import dataset, preprocess
-from face_auth.model.classification import FaceClassifier
-from face_auth.model.detector import StaticFaceDetector
-from face_auth.model.recognition_algo import RecognitionAlgo
-from face_auth.model.verification import FaceVerifier
+from facepy.model import dataset, preprocess
+from facepy.model.classification import FaceClassifier
+from facepy.model.detector import StaticFaceDetector
+from facepy.model.recognition_algo import RecognitionAlgo
+from facepy.model.verification import FaceVerifier
 
 
 def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str,

@@ -2,8 +2,8 @@ import cv2.cv2 as cv2
 import numpy as np
 from typing import Iterable
 
-from face_auth.config import Renderer as Config
-from face_auth.model.geometry import Landmarks, Point, Rect
+from facepy.config import Renderer as Config
+from facepy.model.geometry import Landmarks, Point, Rect
 
 
 def draw_points(frame: np.array, points: Iterable[Point]) -> None:

@@ -3,7 +3,7 @@ import numpy as np
 from os import path
 from typing import Any, Dict, List, Optional
 
-from face_auth import config
+from facepy import config
 from . import fileutils, preprocess
 from .detector import FaceSample, StaticFaceDetector
 from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor

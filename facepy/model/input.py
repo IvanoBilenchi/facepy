@@ -2,7 +2,7 @@ import cv2.cv2 as cv2
 import numpy as np
 from threading import Lock, Thread
 
-from face_auth import config
+from facepy import config
 
 
 class WebcamStream:
