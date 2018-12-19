@@ -166,26 +166,22 @@ class FaceVerifier:
     # Private
 
     def __learn_threshold(self, truths: List[np.array], negatives: Iterable[np.array]) -> None:
-        avg_positive_confidence = 0
+        truth_confidences = [c for c in (self._predict(i) for i in truths) if np.isfinite(c)]
+        min_positive_confidence = min(truth_confidences)
+        avg_positive_confidence = np.mean(truth_confidences)
 
-        for image in truths:
-            avg_positive_confidence += self._predict(image)
+        positive_threshold = (min_positive_confidence + avg_positive_confidence) / 2
+        negative_threshold = min(self._predict(i) for i in negatives)
 
-        avg_positive_confidence /= len(truths)
-
-        min_negative_confidence = sys.maxsize
-
-        for image in negatives:
-            confidence = self._predict(image)
-
-            if confidence < min_negative_confidence:
-                min_negative_confidence = confidence
-
-        self.threshold = (min_negative_confidence + avg_positive_confidence) / 2
+        if np.isfinite(negative_threshold):
+            self.threshold = (negative_threshold + positive_threshold) / 2
+        else:
+            self.threshold = (max(truth_confidences) + positive_threshold) / 2
 
         if config.DEBUG:
+            print('Minimum positive confidence: {:.2f}'.format(min_positive_confidence))
             print('Average positive confidence: {:.2f}'.format(avg_positive_confidence))
-            print('Minimum negative confidence: {:.2f}'.format(min_negative_confidence))
+            print('Minimum negative confidence: {:.2f}'.format(negative_threshold))
             print('Learned threshold: {:.2f}'.format(self.threshold))
 
 
