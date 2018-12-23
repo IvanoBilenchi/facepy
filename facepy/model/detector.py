@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Callable, List, Optional
 
 from facepy import config
+from facepy.config import Paths
 from .geometry import Face, Landmarks, Size, Rect
 
 
@@ -13,11 +14,42 @@ from .geometry import Face, Landmarks, Size, Rect
 
 
 class RawModel:
-    haar_detector = cv2.CascadeClassifier(config.Paths.HAAR_FACE_DETECTOR_MODEL)
-    hog_detector = dlib.get_frontal_face_detector()
-    cnn_detector = dlib.cnn_face_detection_model_v1(config.Paths.CNN_FACE_DETECTOR_MODEL)
-    shape_predictor = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_MODEL)
-    shape_predictor_small = dlib.shape_predictor(config.Paths.FACE_LANDMARKS_SMALL_MODEL)
+
+    _haar_detector = None
+    _hog_detector = None
+    _cnn_detector = None
+    _shape_predictor = None
+    _shape_predictor_small = None
+
+    @classmethod
+    def haar_detector(cls) -> cv2.CascadeClassifier:
+        if cls._haar_detector is None:
+            cls._haar_detector = cv2.CascadeClassifier(Paths.HAAR_FACE_DETECTOR_MODEL)
+        return cls._haar_detector
+
+    @classmethod
+    def hog_detector(cls) -> dlib.fhog_object_detector:
+        if cls._hog_detector is None:
+            cls._hog_detector = dlib.get_frontal_face_detector()
+        return cls._hog_detector
+
+    @classmethod
+    def cnn_detector(cls) -> dlib.cnn_face_detection_model_v1:
+        if cls._cnn_detector is None:
+            cls._cnn_detector = dlib.cnn_face_detection_model_v1(Paths.CNN_FACE_DETECTOR_MODEL)
+        return cls._cnn_detector
+
+    @classmethod
+    def shape_predictor(cls) -> dlib.shape_predictor:
+        if cls._shape_predictor is None:
+            cls._shape_predictor = dlib.shape_predictor(Paths.FACE_LANDMARKS_MODEL)
+        return cls._shape_predictor
+
+    @classmethod
+    def shape_predictor_small(cls) -> dlib.shape_predictor:
+        if cls._shape_predictor_small is None:
+            cls._shape_predictor_small = dlib.shape_predictor(Paths.FACE_LANDMARKS_SMALL_MODEL)
+        return cls._shape_predictor_small
 
 
 class FaceSample:
@@ -80,7 +112,7 @@ class StaticFaceDetector(FaceDetector):
         return _detect_faces(frame, self.__scale_factor, detect_func)
 
     def detect_landmarks(self, frame: np.array, rect: Rect) -> Landmarks:
-        landmarks = RawModel.shape_predictor(frame, rect.to_dlib_rect())
+        landmarks = RawModel.shape_predictor()(frame, rect.to_dlib_rect())
         return Landmarks.from_dlib_landmarks(landmarks)
 
     def detect_main_face(self, frame: np.array) -> Optional[Face]:
@@ -179,14 +211,17 @@ def _detect_faces(frame: np.array, scale_factor: int,
 
 def _haar_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return [Rect(*f) for f in RawModel.haar_detector.detectMultiScale(temp_frame, 1.2, 5)]
+    detector = RawModel.haar_detector()
+    return [Rect(*f) for f in detector.detectMultiScale(temp_frame, 1.2, 5)]
 
 
 def _hog_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return [Rect.from_dlib_rect(rect) for rect in RawModel.hog_detector(temp_frame)]
+    detector = RawModel.hog_detector()
+    return [Rect.from_dlib_rect(rect) for rect in detector(temp_frame)]
 
 
 def _cnn_detect_faces(frame: np.array) -> List[Rect]:
     temp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return [Rect.from_dlib_rect(face.rect) for face in RawModel.cnn_detector(temp_frame)]
+    detector = RawModel.cnn_detector()
+    return [Rect.from_dlib_rect(face.rect) for face in detector(temp_frame)]

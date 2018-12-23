@@ -177,7 +177,7 @@ class FeaturesClassifier(FaceClassifier):
     def _predict(self, image: np.array) -> int:
         embedding = self.__extractor.extract_features(image)
 
-        label = min((min(FeatureExtractor.distance(x, embedding) for x in e), i)
+        label = min((min(np.linalg.norm(x - embedding) for x in e), i)
                     for i, e in enumerate(self.__model))[1]
 
         return label

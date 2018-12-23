@@ -1,7 +1,6 @@
 import cv2.cv2 as cv2
 import math
 import numpy as np
-import sys
 from itertools import islice, tee
 from os import path
 from typing import Iterable, List, Optional
@@ -283,7 +282,7 @@ class FeaturesVerifier(FaceVerifier):
         if sample is None:
             return float('inf')
 
-        return min(FeatureExtractor.distance(x, sample) for x in self.__embeddings)
+        return min(np.linalg.norm(x - sample) for x in self.__embeddings)
 
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:

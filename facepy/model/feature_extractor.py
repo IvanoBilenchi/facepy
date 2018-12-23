@@ -14,10 +14,6 @@ from facepy.view import geometry_renderer
 class FeatureExtractor:
     """Abstract feature extractor class."""
 
-    @classmethod
-    def distance(cls, a: np.array, b: np.array) -> float:
-        return np.linalg.norm(a - b)
-
     # Must override
 
     def extract_features(self, image: np.array) -> Optional[np.array]:
@@ -44,14 +40,16 @@ class GeometricFeatureExtractor(FeatureExtractor):
             geometry_renderer.draw_points(new_image, traits)
             img.save(new_image, os.path.join(config.Paths.DEBUG_DIR, 'features.png'))
 
-        n_traits = len(traits)
+        n = len(traits)
         norm_factor = face.landmarks.left_eye[0].distance(face.landmarks.right_eye[3])
 
-        embedding = np.zeros(self.__num_combinations_two(n_traits))
+        # Size of the feature vector is given by (n choose 2)
+        embedding_size = n * (n - 1) // 2
+        embedding = np.zeros(embedding_size)
         idx = 0
 
-        for i in range(n_traits - 1):
-            for j in range(i + 1, n_traits):
+        for i in range(n - 1):
+            for j in range(i + 1, n):
                 embedding[idx] = traits[i].distance(traits[j]) / norm_factor
                 idx += 1
 
@@ -66,9 +64,6 @@ class GeometricFeatureExtractor(FeatureExtractor):
             lm.top_lip[0], lm.top_lip[2], lm.top_lip[4], lm.top_lip[6], lm.bottom_lip[3]
         ]
 
-    def __num_combinations_two(self, count: int) -> int:
-        return count * (count - 1) // 2
-
     def __distance(self, embedding: np.array, other: np.array) -> float:
         return np.linalg.norm(embedding - other)
 
@@ -82,11 +77,11 @@ class CNNFeatureExtractor(FeatureExtractor):
 
     def extract_features(self, image: np.array) -> Optional[np.array]:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        detections = RawModel.hog_detector(image)
+        detections = RawModel.hog_detector()(image)
         embedding = None
 
         if detections is not None and len(detections) > 0:
-            landmarks = RawModel.shape_predictor_small(image, detections[0])
+            landmarks = RawModel.shape_predictor_small()(image, detections[0])
             embedding = np.array(self.__net.compute_face_descriptor(image, landmarks))
 
         return embedding
