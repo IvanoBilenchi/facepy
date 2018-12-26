@@ -1,24 +1,26 @@
-import numpy as np
 from os import path
 from time import perf_counter_ns
 from typing import Callable, List, NamedTuple, Optional
 
-from . import img
+import numpy as np
+
 from facepy.config import Paths
+from . import img
 
 
 class Step(NamedTuple):
-    """Models a processing step."""
+    """Models an image processing step."""
     name: str
     run: Callable[[np.array], np.array]
 
 
 class Pipeline:
-    """Models a frame processing pipeline."""
+    """Models an image processing pipeline."""
 
     @classmethod
     def execute(cls, name: str, frame: np.array, debug: bool = False,
                 steps: Optional[List[Step]] = None) -> np.array:
+        """Convenience method: instantiates and runs an image processing pipeline."""
         return Pipeline(name, debug, steps).run(frame)
 
     def __init__(self, name: str, debug: bool, steps: Optional[List[Step]]) -> None:

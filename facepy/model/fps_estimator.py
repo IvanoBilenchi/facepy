@@ -4,14 +4,13 @@ from time import perf_counter_ns
 class FPSEstimator:
     """Estimates FPS."""
 
-    # Public
-
     def __init__(self) -> None:
         self.fps = 0.0
         self.__frame_count = 0
         self.__frame_timestamp = perf_counter_ns()
 
     def tick_and_compute_fps(self) -> float:
+        """Returns the estimated FPS given an observation window of 0.5s."""
         self.__frame_count += 1
 
         current_ns = perf_counter_ns()

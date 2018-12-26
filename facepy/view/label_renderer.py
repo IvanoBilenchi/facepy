@@ -1,7 +1,8 @@
-import cv2.cv2 as cv2
-import numpy as np
 from enum import Enum
 from time import perf_counter_ns
+
+import cv2.cv2 as cv2
+import numpy as np
 
 from facepy.config import Renderer
 from facepy.model.geometry import Size

@@ -3,23 +3,20 @@ import numpy as np
 from typing import Iterable
 
 from facepy.config import Renderer as Config
-from facepy.model.geometry import Landmarks, Point, Rect
+from facepy.model.geometry import Landmarks, Point
 
 
-def draw_points(frame: np.array, points: Iterable[Point]) -> None:
+def draw_points(image: np.array, points: Iterable[Point]) -> None:
+    """Draws points on the specified image."""
     thickness = Config.Landmarks.THICKNESS
     color = Config.Landmarks.BASE_COLOR
     for pt in points:
-        cv2.circle(frame, pt, thickness, color, thickness)
+        cv2.circle(image, pt, thickness, color, thickness)
 
 
-def draw_rect(frame: np.array, rect: Rect) -> None:
-    cv2.rectangle(frame, rect.top_left, rect.bottom_right,
-                  Config.Rect.COLOR, Config.Rect.THICKNESS, Config.Rect.LINE_TYPE)
-
-
-def draw_landmarks(frame: np.array, landmarks: Landmarks,
+def draw_landmarks(image: np.array, landmarks: Landmarks,
                    points=False, draw_bg=False, color=None) -> None:
+    """Draws facial landmarks on the specified image."""
     lm = landmarks
     alpha = Config.Landmarks.ALPHA
 
@@ -36,14 +33,14 @@ def draw_landmarks(frame: np.array, landmarks: Landmarks,
 
     if draw_bg:
         bg_alpha = 0.2
-        overlay = frame.copy()
+        overlay = image.copy()
         cv2.fillPoly(overlay, Point.to_numpy(lm.outer_shape), color)
-        cv2.addWeighted(overlay, bg_alpha, frame, 1.0 - bg_alpha, 0, frame)
+        cv2.addWeighted(overlay, bg_alpha, image, 1.0 - bg_alpha, 0, image)
 
     thickness = Config.Landmarks.THICKNESS
     line_type = Config.Landmarks.LINE_TYPE
 
-    overlay = frame.copy() if alpha < 1.0 else frame
+    overlay = image.copy() if alpha < 1.0 else image
 
     for pts in [lm.chin, lm.left_eyebrow, lm.right_eyebrow, lm.nose_bridge, lm.nose_tip]:
         if points:
@@ -67,4 +64,4 @@ def draw_landmarks(frame: np.array, landmarks: Landmarks,
             cv2.polylines(overlay, Point.to_numpy(pts), True, mouth_color, thickness, line_type)
 
     if alpha < 1.0:
-        cv2.addWeighted(overlay, alpha, frame, 1.0 - alpha, 0.0, frame)
+        cv2.addWeighted(overlay, alpha, image, 1.0 - alpha, 0.0, image)

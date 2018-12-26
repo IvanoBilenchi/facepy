@@ -1,11 +1,13 @@
+from threading import Lock, Thread
+
 import cv2.cv2 as cv2
 import numpy as np
-from threading import Lock, Thread
 
 from facepy import config
 
 
 class WebcamStream:
+    """Allows retrieving frames from a webcam acquisition thread running in background."""
 
     def __init__(self) -> None:
         self.__cam: cv2.VideoCapture = None

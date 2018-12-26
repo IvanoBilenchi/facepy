@@ -1,14 +1,15 @@
-import cv2.cv2 as cv2
-import numpy as np
 from enum import Enum
 
+import cv2.cv2 as cv2
+import numpy as np
+
 import facepy.config as config
-from . import color
-from .fps_renderer import FPSRenderer
-from .label_renderer import LabelPosition, LabelRenderer
 from facepy.model import img
 from facepy.model.fps_estimator import FPSEstimator
 from facepy.model.geometry import Size
+from . import color
+from .fps_renderer import FPSRenderer
+from .label_renderer import LabelPosition, LabelRenderer
 
 
 class VideoView:

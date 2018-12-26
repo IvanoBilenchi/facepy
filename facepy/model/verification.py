@@ -1,26 +1,41 @@
-import cv2.cv2 as cv2
 import math
-import numpy as np
 from itertools import islice, tee
 from os import path
 from typing import Iterable, List, Optional
+
+import cv2.cv2 as cv2
+import numpy as np
 
 from facepy import config
 from . import dataset, fileutils, img, preprocess
 from .dataset import DataSample
 from .detector import FaceSample, StaticFaceDetector
-from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor
+from .feature_extractor import CNNFeatureExtractor, FeatureExtractor, GeometricFeatureExtractor
 from .recognition_algo import RecognitionAlgo
 
 
 class FaceVerifier:
+    """
+    Abstract face verifier class.
+
+    A face verifier works by computing a 'confidence' score for a certain image,
+    which is then thresholded in order to determine if the image depicts the person
+    that the verifier was trained to recognize.
+
+    Value of the threshold can be set arbitrarily depending on the required performance
+    in terms of false positives and/or negatives. This class attempts to automatically learn
+    a suitable threshold value by running the verifier on subsets of positive and negative
+    sample images (see __learn_threshold()).
+    """
 
     class ConfigKey:
+        """Model configuration file keys."""
         ALGO = 'algo'
         THRESH = 'thresh'
         NAME = 'name'
 
     class FileName:
+        """Model file names."""
         MODEL = 'model.dat'
         CONFIG = 'model_config.json'
 
@@ -28,6 +43,7 @@ class FaceVerifier:
 
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'FaceVerifier':
+        """Factory method: creates a face verifier using the specified algorithm."""
         if algo in [RecognitionAlgo.EIGEN, RecognitionAlgo.FISHER, RecognitionAlgo.LBPH]:
             return OpenCVVerifier.create(algo)
         else:
@@ -35,6 +51,7 @@ class FaceVerifier:
 
     @classmethod
     def from_dir(cls, dir_path: str) -> 'FaceVerifier':
+        """Factory method: loads a pre-trained face verifier from the specified directory."""
         model_path = path.join(dir_path, cls.FileName.MODEL)
         config_path = path.join(dir_path, cls.FileName.CONFIG)
 
@@ -53,16 +70,22 @@ class FaceVerifier:
         self._detector = StaticFaceDetector(scale_factor=1)
 
     def confidence(self, image: np.array) -> float:
-        sample = self._detector.extract_main_face_sample(image)
+        """Returns the confidence value for the specified image."""
+        sample = self._detector.get_main_face_sample(image)
         return self.confidence_for_sample(sample) if sample else float('inf')
 
     def predict(self, image: np.array) -> bool:
+        """
+        Checks whether the specified image depicts the person
+        that the verifier was trained to recognize.
+        """
         return self.confidence(image) < self.threshold
 
     def confidence_for_sample(self, sample: FaceSample) -> float:
-        image = preprocess.extract_face(sample,
-                                        preprocess=self.needs_preprocessing(),
-                                        debug=config.DEBUG)
+        """Returns the confidence value for the specified face sample."""
+        image = preprocess.prepare_for_recognition(sample,
+                                                   preprocess=self.needs_preprocessing(),
+                                                   debug=config.DEBUG)
         confidence = self._predict(image)
 
         if config.DEBUG:
@@ -71,18 +94,31 @@ class FaceVerifier:
         return confidence
 
     def predict_sample(self, sample: FaceSample) -> bool:
+        """
+        Checks whether the specified sample depicts the person
+        that the verifier was trained to recognize.
+        """
         return self.confidence_for_sample(sample) < self.threshold
 
     def train(self, samples: [FaceSample]) -> None:
+        """
+        Trains the verifier with the specified positive samples.
+
+        Samples are split in two variably sized sets, whose size depends on
+        VERIFICATION_POSITIVE_TRAINING_SAMPLES_SPLIT (in config.py): the first set is used
+        to actually train the verifier; the second set is used to learn a suitable threshold value.
+        """
         samples_count = len(samples)
 
         if samples_count < 2:
             raise ValueError('You need at least two samples to train a verifier.')
 
+        should_preprocess = self.needs_preprocessing()
+
         samples = [
-            preprocess.extract_face(sample,
-                                    preprocess=self.needs_preprocessing(),
-                                    debug=config.DEBUG)
+            preprocess.prepare_for_recognition(sample,
+                                               preprocess=should_preprocess,
+                                               debug=config.DEBUG)
             for sample in samples
         ]
 
@@ -100,8 +136,12 @@ class FaceVerifier:
         truths = samples[-truths_count:]
 
         def preprocessor(sample: DataSample) -> Optional[DataSample]:
-            image = preprocess.extract_frontal_face(self._detector, sample.image,
-                                                    preprocess=self.needs_preprocessing())
+            face_sample = self._detector.get_main_face_sample(sample.image)
+
+            if face_sample is None or not face_sample.pose_is_frontal():
+                return None
+
+            image = preprocess.prepare_for_recognition(face_sample, preprocess=should_preprocess)
             new_sample = None
 
             if image is not None:
@@ -110,9 +150,31 @@ class FaceVerifier:
 
             return new_sample
 
-        max_samples = config.Recognizer.VERIFICATION_NEGATIVE_TRAINING_SAMPLES
-        negatives = dataset.negative_verification_images(dataset.all_samples(preprocessor),
-                                                         max_samples=max_samples)
+        def negative_verification_images(data_samples: Iterable[DataSample]) -> Iterable[np.array]:
+
+            max_samples = config.Recognizer.VERIFICATION_NEGATIVE_TRAINING_SAMPLES
+            skip_person: str = None
+            n_samples = 0
+
+            for sample in data_samples:
+
+                sample_name = sample.person_name
+
+                if skip_person != sample_name:
+                    skip_person = None
+
+                if sample_name == self.person_name or sample_name == skip_person:
+                    continue
+
+                skip_person = sample_name
+
+                if n_samples < max_samples:
+                    n_samples += 1
+                    yield sample.image
+                else:
+                    break
+
+        negatives = negative_verification_images(dataset.all_samples(preprocessor))
 
         if self.uses_negatives():
             n1, n2 = tee(negatives, 2)
@@ -123,6 +185,7 @@ class FaceVerifier:
             self.__learn_threshold(truths, negatives)
 
     def save(self, model_dir: str) -> None:
+        """Saves the trained verification model."""
         fileutils.create_dir(model_dir)
         model_path = path.join(model_dir, self.FileName.MODEL)
         config_path = path.join(model_dir, self.FileName.CONFIG)
@@ -141,30 +204,44 @@ class FaceVerifier:
     # Must override
 
     def algo(self) -> RecognitionAlgo:
+        """Returns the recognition algorithm used by this verifier."""
         raise NotImplementedError
 
     def needs_preprocessing(self) -> bool:
+        """
+        If True, samples are preprocessed before being fed to the recognition algorithm.
+        See preprocess.py for further info.
+        """
         return True
 
     def uses_negatives(self) -> bool:
+        """If True, negative samples are passed to the _train() method."""
         return False
 
     def _predict(self, image: np.array) -> float:
+        """
+        Subclasses should override this method by returning
+        the confidence associated with the specified image.
+        """
         raise NotImplementedError
 
     def _train(self, positive_samples: Iterable[np.array],
                negative_samples: Iterable[np.array]) -> None:
+        """Subclasses should override this by providing suitable model training logic."""
         raise NotImplementedError
 
     def _load(self, model_path: str) -> None:
+        """Subclasses should override this by providing model loading logic."""
         raise NotImplementedError
 
     def _save(self, model_path: str) -> None:
+        """Subclasses should override this by providing model saving logic."""
         raise NotImplementedError
 
     # Private
 
     def __learn_threshold(self, truths: List[np.array], negatives: Iterable[np.array]) -> None:
+        """Learns a suitable threshold value."""
         truth_confidences = [c for c in (self._predict(i) for i in truths) if np.isfinite(c)]
         min_positive_confidence = min(truth_confidences)
         avg_positive_confidence = np.mean(truth_confidences)
@@ -185,6 +262,10 @@ class FaceVerifier:
 
 
 class OpenCVVerifier(FaceVerifier):
+    """
+    Wrapper class for verifiers using face recognition algorithms from OpenCV.
+    The confidence value is returned by the OpenCV FaceRecognizer API.
+    """
 
     # Public
 
@@ -252,6 +333,11 @@ class OpenCVVerifier(FaceVerifier):
 
 
 class FeaturesVerifier(FaceVerifier):
+    """
+    Performs verification by using a feature extractor.
+    The confidence value represents the minimum distance between the feature vector extracted
+    from the sample to verify and any of the feature vectors extracted from the training samples.
+    """
 
     # Public
 

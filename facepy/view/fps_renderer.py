@@ -1,4 +1,5 @@
 import numpy as np
+
 from .label_renderer import LabelPosition, LabelRenderer
 
 

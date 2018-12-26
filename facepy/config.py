@@ -61,12 +61,6 @@ class Renderer:
         PADDING = 10
         BAR_ALPHA = 0.6
 
-    class Rect:
-        """Rect renderer config namespace."""
-        THICKNESS = 3
-        COLOR = color.BLUE
-        LINE_TYPE = cv2.LINE_AA
-
     class Landmarks:
         """Landmarks renderer config namespace."""
         THICKNESS = 2

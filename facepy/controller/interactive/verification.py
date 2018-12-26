@@ -18,6 +18,7 @@ class LabelText:
 
 
 class VerificationVideoController(VideoController):
+    """Video controller that verifies the user interactively via a previously trained model."""
 
     # Public
 

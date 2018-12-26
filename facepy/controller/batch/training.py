@@ -7,6 +7,7 @@ from facepy.model.verification import FaceVerifier
 
 def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str,
                    max_samples: int = 10) -> FaceVerifier:
+    """Trains a verifier by feeding it samples from the specified directory."""
     detector = StaticFaceDetector(scale_factor=1)
 
     verifier = FaceVerifier.create(algo)
@@ -26,6 +27,7 @@ def train_verifier(algo: RecognitionAlgo, samples_dir: str, model_dir: str,
 
 def train_classifier(algo: RecognitionAlgo, model_dir: str,
                      min_samples: int = 20, training_samples: int = 10) -> FaceClassifier:
+    """Trains a classifier by feeding it classes having at least 'min_samples' valid samples."""
     detector = StaticFaceDetector(scale_factor=1)
     classifier = FaceClassifier.create(algo)
     data = {}

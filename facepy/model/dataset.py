@@ -1,14 +1,15 @@
-import cv2.cv2 as cv2
-import numpy as np
 import os
-import sys
 from os import path
 from typing import Callable, Iterable
+
+import cv2.cv2 as cv2
+import numpy as np
 
 from facepy import config
 
 
 class DataSample:
+    """Models a single LFW dataset image."""
 
     @property
     def person_name(self) -> str:
@@ -38,10 +39,12 @@ class DataSample:
 
 
 def person_name_from_dir(dir_path: str) -> str:
+    """Converts a LFW dir name to a person name."""
     return path.basename(dir_path).replace('_', ' ')
 
 
 def all_dirs() -> Iterable[str]:
+    """Returns all the dirs in the dataset."""
     data_dir = config.Paths.DATASET_DIR
     dirs = [path.join(data_dir, d) for d in os.listdir(data_dir)]
     dirs = [d for d in dirs if path.isdir(d)]
@@ -50,6 +53,11 @@ def all_dirs() -> Iterable[str]:
 
 
 def samples_in_dir(dir_path: str, sample_filter: Callable = None) -> Iterable[DataSample]:
+    """
+    Returns the data samples present in the specified dir.
+    'sample_filter' is a function accepting a DataSample and returning either a DataSample or None.
+    If specified, it is used to filter and/or process data samples yielded by the iterator.
+    """
     paths = [path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.jpg')]
     paths.sort()
 
@@ -64,35 +72,13 @@ def samples_in_dir(dir_path: str, sample_filter: Callable = None) -> Iterable[Da
 
 
 def samples_for_person(person_name: str, sample_filter: Callable = None) -> Iterable[DataSample]:
+    """Returns the data samples for the specified person."""
     person_dir = path.join(config.Paths.DATASET_DIR, person_name.replace(' ', '_'))
     return samples_in_dir(person_dir, sample_filter=sample_filter)
 
 
 def all_samples(sample_filter: Callable = None) -> Iterable[DataSample]:
+    """Returns all the samples in the dataset."""
     for dir_path in all_dirs():
         for sample in samples_in_dir(dir_path, sample_filter=sample_filter):
             yield sample
-
-
-def negative_verification_images(samples: Iterable[DataSample], person_name: str = None,
-                                 max_samples: int = sys.maxsize) -> Iterable[np.array]:
-    skip_person: str = None
-    n_samples = 0
-
-    for sample in samples:
-
-        sample_name = sample.person_name
-
-        if skip_person != sample_name:
-            skip_person = None
-
-        if sample_name == person_name or sample_name == skip_person:
-            continue
-
-        skip_person = sample_name
-
-        if n_samples < max_samples:
-            n_samples += 1
-            yield sample.image
-        else:
-            break

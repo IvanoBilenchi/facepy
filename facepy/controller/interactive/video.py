@@ -6,6 +6,10 @@ from facepy.view.video import VideoView
 
 
 class VideoController:
+    """
+    Abstract video controller class: acquires and displays frames from a WebcamStream object.
+    Subclasses should provide frame processing logic by overriding _process_frame().
+    """
 
     # Public
 

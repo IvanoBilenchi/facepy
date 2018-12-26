@@ -1,27 +1,36 @@
-import cv2.cv2 as cv2
-import numpy as np
 from os import path
 from typing import Any, Dict, List, Optional
+
+import cv2.cv2 as cv2
+import numpy as np
 
 from facepy import config
 from . import fileutils, preprocess
 from .detector import FaceSample, StaticFaceDetector
-from .feature_extractor import FeatureExtractor, CNNFeatureExtractor, GeometricFeatureExtractor
+from .feature_extractor import CNNFeatureExtractor, FeatureExtractor, GeometricFeatureExtractor
 from .recognition_algo import RecognitionAlgo
 
 
 class FaceClassifier:
+    """
+    Abstract face classifier class.
+
+    Face classifiers are used to identify people depicted in images.
+    """
 
     class ConfigKey:
+        """Model configuration file keys."""
         ALGO = 'algo'
         LABELS = 'labels'
 
     class FileName:
+        """Model file names."""
         MODEL = 'model.dat'
         CONFIG = 'model_config.json'
 
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'FaceClassifier':
+        """Factory method: creates a face classifier using the specified algorithm."""
         if algo in [RecognitionAlgo.EIGEN, RecognitionAlgo.FISHER, RecognitionAlgo.LBPH]:
             return OpenCVClassifier.create(algo)
         else:
@@ -29,6 +38,7 @@ class FaceClassifier:
 
     @classmethod
     def from_dir(cls, dir_path: str) -> 'FaceClassifier':
+        """Factory method: loads a pre-trained face verifier from the specified directory."""
         model_path = path.join(dir_path, cls.FileName.MODEL)
         config_path = path.join(dir_path, cls.FileName.CONFIG)
 
@@ -43,6 +53,7 @@ class FaceClassifier:
 
     @property
     def labels(self) -> List[str]:
+        """Names of the people this classifier can identify."""
         return self._labels
 
     def __init__(self) -> None:
@@ -50,24 +61,27 @@ class FaceClassifier:
         self._labels: List[str] = None
 
     def predict(self, image: np.array) -> Optional[str]:
+        """Predicts the name of the person depicted in the specified image."""
         face = self._detector.detect_main_face(image)
         return self.predict_sample(FaceSample(image, face)) if face else None
 
     def predict_sample(self, sample: FaceSample) -> str:
-        image = preprocess.extract_face(sample,
-                                        preprocess=self.needs_preprocessing(),
-                                        debug=config.DEBUG)
+        """Predicts the name of the person depicted in the specified sample."""
+        image = preprocess.prepare_for_recognition(sample,
+                                                   preprocess=self.needs_preprocessing(),
+                                                   debug=config.DEBUG)
         return self._labels[self._predict(image)]
 
     def train(self, data: Dict[str, List[FaceSample]]) -> None:
+        """Trains the classifier. 'data' is a dictionary mapping labels to training samples."""
         processed_data: List[List[np.array]] = []
         self._labels = []
 
         for name, samples in data.items():
             samples = [
-                preprocess.extract_face(sample,
-                                        preprocess=self.needs_preprocessing(),
-                                        debug=config.DEBUG)
+                preprocess.prepare_for_recognition(sample,
+                                                   preprocess=self.needs_preprocessing(),
+                                                   debug=config.DEBUG)
                 for sample in samples
             ]
 
@@ -77,6 +91,7 @@ class FaceClassifier:
         self._train(processed_data)
 
     def save(self, model_dir: str) -> None:
+        """Saves the trained classification model."""
         fileutils.create_dir(model_dir)
         model_path = path.join(model_dir, self.FileName.MODEL)
         config_path = path.join(model_dir, self.FileName.CONFIG)
@@ -94,25 +109,38 @@ class FaceClassifier:
     # Must override
 
     def algo(self) -> RecognitionAlgo:
+        """Returns the recognition algorithm used by this classifier."""
         raise NotImplementedError
 
     def needs_preprocessing(self) -> bool:
+        """
+        If True, samples are preprocessed before being fed to the recognition algorithm.
+        See preprocess.py for further info.
+        """
         return True
 
     def _predict(self, image: np.array) -> int:
+        """
+        Subclasses should override this method by returning the index corresponding to the
+        predicted label for the specified image.
+        """
         raise NotImplementedError
 
     def _train(self, data: List[List[np.array]]) -> None:
+        """Subclasses should override this by providing suitable model training logic."""
         raise NotImplementedError
 
     def _load(self, model_path: str) -> None:
+        """Subclasses should override this by providing model loading logic."""
         raise NotImplementedError
 
     def _save(self, model_path: str) -> None:
+        """Subclasses should override this by providing model saving logic."""
         raise NotImplementedError
 
 
 class OpenCVClassifier(FaceClassifier):
+    """Wrapper class for classifiers using face recognition algorithms from OpenCV."""
 
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'OpenCVClassifier':
@@ -152,6 +180,7 @@ class OpenCVClassifier(FaceClassifier):
 
 
 class FeaturesClassifier(FaceClassifier):
+    """1-NN classifier using features extracted via a FeatureExtractor object."""
 
     @classmethod
     def create(cls, algo: RecognitionAlgo) -> 'FeaturesClassifier':

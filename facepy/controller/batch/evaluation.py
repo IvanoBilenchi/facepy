@@ -1,5 +1,6 @@
-import numpy as np
 from typing import List
+
+import numpy as np
 
 from facepy.model import dataset, preprocess
 from facepy.model.classification import FaceClassifier
@@ -8,6 +9,7 @@ from facepy.model.verification import FaceVerifier
 
 
 def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:
+    """Prints classical performance metrics based on true/false positives/negatives."""
 
     if fp + fn == 0:
         accuracy = 1.0
@@ -45,6 +47,7 @@ def print_metrics(tp: int, tn: int, fp: int, fn: int) -> None:
 
 
 def print_metrics_multiclass(cm: np.array, labels: List[str]) -> None:
+    """Prints classical performance metrics based on a confusion matrix."""
     n_classes = cm.shape[0]
     n_predictions = np.sum(cm)
 
@@ -72,23 +75,24 @@ def print_metrics_multiclass(cm: np.array, labels: List[str]) -> None:
 
     print('Confusion matrix\n----------------\n')
     print(cm)
-    print_metric('Accuracy', accuracy, labels, tp_plus_fn)
-    print_metric('Precision', precision, labels, tp_plus_fn)
-    print_metric('Recall', recall, labels, tp_plus_fn)
-    print_metric('Specificity', specificity, labels, tp_plus_fn)
-    print_metric('F1 score', f1, labels, tp_plus_fn)
 
+    def print_metric(name: str, metric: np.array) -> None:
+        title = '{} (avg: {:.2f}, w_avg: {:.2f})'.format(name, np.average(metric),
+                                                         np.average(metric, weights=tp_plus_fn))
+        print('\n{}\n{}'.format(title, '-' * len(title)))
 
-def print_metric(name: str, metric: np.array, labels: List[str], predictions: np.array) -> None:
-    title = '{} (avg: {:.2f}, w_avg: {:.2f})'.format(name, np.average(metric),
-                                                     np.average(metric, weights=predictions))
-    print('\n{}\n{}'.format(title, '-' * len(title)))
+        for i, m in enumerate(metric):
+            print('  - {}: {:.2f}'.format(labels[i], m))
 
-    for i, m in enumerate(metric):
-        print('  - {}: {:.2f}'.format(labels[i], m))
+    print_metric('Accuracy', accuracy)
+    print_metric('Precision', precision)
+    print_metric('Recall', recall)
+    print_metric('Specificity', specificity)
+    print_metric('F1 score', f1)
 
 
 def evaluate_verifier(model_dir: str, skip: int = 0) -> None:
+    """Evaluates a previously trained verifier, printing performance metrics."""
     verifier = FaceVerifier.from_dir(model_dir)
     detector = StaticFaceDetector(scale_factor=1)
 
@@ -128,6 +132,7 @@ def evaluate_verifier(model_dir: str, skip: int = 0) -> None:
 
 
 def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
+    """Evaluates a previously trained classifier, printing performance metrics."""
     classifier = FaceClassifier.from_dir(model_dir)
     detector = StaticFaceDetector(scale_factor=1)
 

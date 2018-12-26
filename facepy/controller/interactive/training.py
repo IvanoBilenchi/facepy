@@ -19,6 +19,7 @@ class LabelText:
 
 
 class TrainVerifierVideoController(VideoController):
+    """Video controller that allows training a verification model interactively."""
 
     # Public
 
