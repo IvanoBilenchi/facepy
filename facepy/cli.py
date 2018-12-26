@@ -57,6 +57,12 @@ def evaluate_classifier_sub(args) -> int:
     return 0
 
 
+def info_sub(args) -> int:
+    """info subcommand."""
+    evaluation.print_dataset_info(min_samples=args.min_samples)
+    return 0
+
+
 # CLI parser
 
 
@@ -152,11 +158,11 @@ def build_parser() -> argparse.ArgumentParser:
                        choices=[a.name for a in RecognitionAlgo],
                        default=config.Recognizer.ALGORITHM)
     group.add_argument('-m', '--min-samples',
-                       help='Train classifier for people having at least as many samples.',
+                       help='Train classifier for individuals having at least as many samples.',
                        type=unsigned_int,
                        default=config.Recognizer.CLASSIFICATION_MIN_SAMPLES)
     group.add_argument('-t', '--training-samples',
-                       help='Number of training samples per person.',
+                       help='Number of training samples for each individual.',
                        type=unsigned_int,
                        default=config.Recognizer.CLASSIFICATION_TRAINING_SAMPLES)
 
@@ -182,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('Options')
     group.add_argument('-s', '--skip',
-                       help='Skip first samples for individual (account for training data).',
+                       help='Skip first samples for each individual (account for training data).',
                        type=unsigned_int,
                        default=0)
 
@@ -203,6 +209,22 @@ def build_parser() -> argparse.ArgumentParser:
                        default=0)
 
     parser.set_defaults(func=evaluate_classifier_sub)
+
+    # info subcommand
+    desc = 'Print info about the dataset.'
+    parser = subparsers.add_parser('info',
+                                   description=desc,
+                                   help=desc,
+                                   parents=[help_parser],
+                                   add_help=False)
+
+    group = parser.add_argument_group('Options')
+    group.add_argument('-m', '--min-samples',
+                       help='Only print info about individuals having at least this many samples.',
+                       type=unsigned_int,
+                       default=0)
+
+    parser.set_defaults(func=info_sub)
 
     return main_parser
 
