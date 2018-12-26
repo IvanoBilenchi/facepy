@@ -59,7 +59,7 @@ def evaluate_classifier_sub(args) -> int:
 
 def info_sub(args) -> int:
     """info subcommand."""
-    evaluation.print_dataset_info(min_samples=args.min_samples)
+    evaluation.print_info(dir_path=args.dir_path, min_samples=args.min_samples)
     return 0
 
 
@@ -110,6 +110,15 @@ def build_parser() -> argparse.ArgumentParser:
                        type=unsigned_int,
                        default=config.WEBCAM)
 
+    # Algorithm parser
+    algo_parser = argparse.ArgumentParser(add_help=False)
+
+    group = algo_parser.add_argument_group('Algorithm configuration')
+    group.add_argument('-a', '--algo',
+                       help='Use a specific algorithm.',
+                       choices=[a.name for a in RecognitionAlgo],
+                       default=config.Recognizer.ALGORITHM)
+
     # Main parser
     main_parser = argparse.ArgumentParser(prog='facepy',
                                           description='Facial recognition framework.',
@@ -123,14 +132,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = subparsers.add_parser('train-verifier',
                                    description=desc,
                                    help=desc,
-                                   parents=[webcam_parser, help_parser],
+                                   parents=[webcam_parser, algo_parser, help_parser],
                                    add_help=False)
 
-    group = parser.add_argument_group('Options')
-    group.add_argument('-a', '--algo',
-                       help='Use a specific algorithm.',
-                       choices=[a.name for a in RecognitionAlgo],
-                       default=config.Recognizer.ALGORITHM)
+    group = parser.add_argument_group('Display options')
     group.add_argument('-p', '--points',
                        help='Show points instead of lines for facial landmarks.',
                        action='store_true')
@@ -149,14 +154,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = subparsers.add_parser('train-classifier',
                                    description=desc,
                                    help=desc,
-                                   parents=[help_parser],
+                                   parents=[algo_parser, help_parser],
                                    add_help=False)
 
-    group = parser.add_argument_group('Options')
-    group.add_argument('-a', '--algo',
-                       help='Use a specific algorithm.',
-                       choices=[a.name for a in RecognitionAlgo],
-                       default=config.Recognizer.ALGORITHM)
+    group = parser.add_argument_group('Training options')
     group.add_argument('-m', '--min-samples',
                        help='Train classifier for individuals having at least as many samples.',
                        type=unsigned_int,
@@ -219,6 +220,8 @@ def build_parser() -> argparse.ArgumentParser:
                                    add_help=False)
 
     group = parser.add_argument_group('Options')
+    group.add_argument('-d', '--dir-path',
+                       help='Print info about the specified dataset dir.')
     group.add_argument('-m', '--min-samples',
                        help='Only print info about individuals having at least this many samples.',
                        type=unsigned_int,

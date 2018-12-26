@@ -160,11 +160,12 @@ def evaluate_classifier(model_dir: str, skip: int = 0) -> None:
     print_metrics_multiclass(cm, classifier.labels)
 
 
-def print_dataset_info(min_samples: int = 0) -> None:
+def print_info(dir_path: str = None, min_samples: int = 0) -> None:
     """Prints info about the dataset (person names and number of valid samples)."""
+    dirs = [dir_path] if dir_path else dataset.all_dirs()
     detector = StaticFaceDetector(scale_factor=1)
 
-    for dir_path in dataset.all_dirs():
+    for dir_path in dirs:
         data_samples = list(dataset.samples_in_dir(dir_path))
 
         if len(data_samples) >= min_samples:
