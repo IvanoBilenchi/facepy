@@ -6,17 +6,18 @@ set -o pipefail
 set -o errtrace
 set -o errexit
 
-# Create virtualenv
-if [ ! -d venv ]; then
-	pip3 install virtualenv
-	virtualenv venv
-fi
-
 echo "Cleaning up..."
 rm -rf temp && mkdir temp
 
+# Create virtualenv
+if [ ! -d venv ]; then
+	echo "Creating venv..."
+	python3 -m venv venv
+fi
+
 echo "Installing Python package requirements..."
 source venv/bin/activate
+pip3 install --upgrade pip
 pip3 install -r requirements.txt
 deactivate
 
